@@ -31,12 +31,17 @@ operação zero é o que torna "de graça" sustentável de verdade.
 
 ## O que ele faz
 
-- **Conteúdo:** URL e texto livre.
+- **Nove tipos de conteúdo:** URL, texto, **Pix (BR Code)**, Wi-Fi, contato (vCard), e-mail, SMS,
+  telefone e geolocalização.
 - **Saídas:** SVG e PDF vetoriais, PNG raster — todas geradas no navegador.
 - **Ficha técnica:** versão, módulos, correção, capacidade, zona de silêncio e margem de dano,
   todos calculados a partir da especificação ISO/IEC 18004.
 - **Personalização:** cor com indicador de contraste, logo central, 14 molduras de impressão.
 - **Verificação automática de leitura** — o diferencial de engenharia, explicado abaixo.
+- **Lote por CSV:** uma planilha vira centenas de códigos empacotados num ZIP, cada um verificado
+  antes de entrar no pacote.
+- **Histórico local** em IndexedDB, com a configuração inteira — cor, moldura, logo — restaurável
+  com um clique.
 - **Opções de gráfica:** papel A4/Carta/Etiqueta, marcas de corte, sangria de 3 mm e preto
   100% K.
 - **Funciona offline** depois da primeira visita.
@@ -56,6 +61,10 @@ isolada por eliminação, e a interface diz isso explicitamente.
 Polaridade invertida é verificada antes de tudo, porque inverter as duas cores mantém a razão de
 contraste **idêntica**: nenhum experimento de cor a distinguiria.
 
+No Pix há um **segundo nível**: além de decodificar o desenho de volta, o BR Code é remontado a
+partir do TLV e o CRC-16 é conferido. Decodificar prova que a string sobreviveu ao desenho;
+remontar prova que a string é um Pix válido. São dois defeitos diferentes, e nenhum cobre o outro.
+
 ### O que isso descobriu
 
 O limite de logo que o mercado publica está errado. Medido com jsQR e ZXing, que concordaram em
@@ -72,6 +81,47 @@ O "25% da área com correção H" repetido por todo gerador **não passa em nenh
 decodificadores**. Ele confunde 30% de recuperação de _codewords_ com 30% de _área_, ignorando
 que uma oclusão central concentra o dano em blocos contíguos. Aqui o teto é 16%, com margem sobre
 o limite real de ~20%.
+
+---
+
+## Pix, o formato que mais combina com a tese
+
+Um **BR Code estático** carrega chave, nome e cidade do recebedor dentro do próprio desenho. Não
+existe redirecionamento nem consulta a servidor — o aplicativo do banco lê os campos ali mesmo. Um
+Pix dinâmico, por contraste, codifica uma URL que o banco precisa consultar para descobrir o valor,
+e essa URL pode ser desligada.
+
+O payload segue o **EMV-MPM** do Banco Central: blocos TLV fechados por um CRC-16. Três detalhes
+que derrubam implementações de primeira viagem, cada um travado em teste:
+
+- **CRC-16/CCITT-FALSE**, não outro dos cinco checksums que atendem por "CCITT". O vetor canônico
+  `0x29B1` para `123456789` separa a variante certa das outras quatro.
+- O checksum cobre o payload **incluindo o cabeçalho `6304` do próprio campo de CRC**.
+- O **ponto de iniciação não é emitido**: ele só é obrigatório quando vale `12`, "use uma vez", que
+  é a marca de um código dinâmico.
+
+Os dígitos verificadores de CPF e CNPJ são conferidos — inclusive pela regra alfanumérica que
+passou a valer em julho de 2026. Uma chave com um dígito trocado geraria um QR perfeitamente
+legível para um destino que não existe, e o erro só apareceria na hora de pagar.
+
+---
+
+## Lote por CSV
+
+Uma planilha com uma coluna de conteúdo (e, opcionalmente, nome de arquivo e chamada de ação) vira
+um ZIP com todas as peças. A configuração é a que está na tela: nível, tamanho, cor, moldura.
+
+O que sustenta isso é a arquitetura, não um caminho paralelo: **o lote chama a mesma função que
+alimenta a prévia**. Não existe uma segunda implementação da composição que pudesse divergir.
+
+Cada linha é decodificada de volta antes de entrar no pacote. A que não lê fica de fora e aparece
+no relatório com o número da linha na planilha — é o defeito que ninguém descobre antes da
+impressão.
+
+O CSV, o ZIP e o PNG do lote são escritos à mão, sem dependência nova: o leitor de CSV porque o
+arquivo vem do disco do usuário e auditar uma dependência custaria mais que setenta linhas; o ZIP
+porque o formato mínimo cabe em cem e o deflate vem da própria plataforma; o PNG porque a
+alternativa (`OffscreenCanvas`) sairia do alcance dos testes em Node.
 
 ---
 
@@ -95,12 +145,17 @@ npm run test:e2e     # end-to-end contra o export estático
 Detalhamento em [docs/ARQUITETURA.md](docs/ARQUITETURA.md). O essencial:
 
 ```
-conteúdo ──▶ /core/qr ──▶ QrArtifact ──┐
-                                        ├──▶ /core/frames ──▶ Scene ──┬──▶ SVG
-      estilo, moldura, chamada ─────────┘   (14 funções puras)        ├──▶ PNG
-                                                                      └──▶ PDF
-                                                                 │
-                                            /core/verify ◀───────┘  decodifica de volta
+formulário ──▶ /core/content ──▶ payload ──▶ /core/qr ──▶ QrArtifact ──┐
+ (9 tipos)                                                              │
+                                                                        ├──▶ /core/frames ──▶ Scene
+                                    estilo, moldura, chamada ───────────┘   (14 funções puras)
+                                                                                    │
+                                              ┌─────────────────────────────────────┤
+                                              ▼            ▼          ▼             ▼
+                                            SVG          PNG        PDF        raster puro
+                                              │                                     │
+                                        /core/batch                      /core/verify
+                                       (CSV → ZIP)                    decodifica de volta
 ```
 
 ### As decisões que mais importaram
@@ -111,6 +166,10 @@ milímetros, cada moldura é escrita **uma vez** como função pura e os rendere
 sem regra de negócio. A divergência entre formatos deixa de ser um risco a mitigar: some por
 construção.
 
+**Entre conteúdo e código passa só uma string.** Um QR carrega texto; o que faz a câmera abrir a
+rede Wi-Fi é a convenção de formato dentro desse texto. Por isso os nove tipos moram num diretório
+só, e o décimo não tocará em nenhum renderer, na verificação nem no lote.
+
 **Milímetro como unidade base, não pixel.** O produto existe para impressão; "1024 px" só
 significa alguma coisa depois de escolhido o DPI.
 
@@ -119,7 +178,8 @@ significa alguma coisa depois de escolhido o DPI.
 arquivo — é que o designer abre **1 objeto em vez de 1.256** no editor vetorial.
 
 **Verificação em Web Worker, com rasterizador puro.** O rasterizador não depende de canvas, o que
-permite a suíte de ida e volta rodar no Node — e esse teste é o argumento central do produto.
+permite a suíte de ida e volta rodar no Node — e esse teste é o argumento central do produto. O
+mesmo rasterizador serve o lote, que por isso também roda sem DOM.
 
 **Fontes do PDF embutidas, não servidas.** Um `fetch`, mesmo da própria origem, abriria um caminho
 de rede num produto cuja tese é que nada sai do navegador. As 441 KB de TTF viram 66 KB depois de
@@ -129,16 +189,22 @@ instanciar o Archivo variável e subsetar para Latin-1.
 ninguém escreve nele de fora da árvore. O custo real de performance está na cadeia derivada, que
 se resolve com `useMemo` e Web Worker.
 
+**IndexedDB para o histórico, não `localStorage`.** Uma configuração com logo embutido é um `data:`
+URI de centenas de KB, e o teto de 5 MB estoura em poucas entradas.
+
 ### Stack
 
 Next.js 16 (App Router, `output: 'export'`) · React 19 · TypeScript strict · Tailwind CSS 4 ·
 Vitest · Playwright · `qrcode` para a matriz · `jsqr` para a verificação · `pdf-lib` para o PDF.
 
+Nada mais. Pix, CSV, ZIP e PNG são implementações próprias — cada uma justificada em
+[docs/ARQUITETURA.md](docs/ARQUITETURA.md).
+
 ---
 
 ## Correções ao material de origem
 
-O brand board é autoritativo para decisões visuais, mas dois números dele não sobreviveram à
+O brand board é autoritativo para decisões visuais, mas alguns números dele não sobreviveram à
 conferência, e um produto cuja tese é honestidade técnica não pode reproduzir um valor impossível:
 
 - **`CAPACIDADE 1.782 / 2.303 bytes` para versão 6 nível H** não existe. O teto do formato em H é
@@ -156,28 +222,41 @@ Os dois primeiros estão ancorados em teste; os dois últimos, confirmados pelo 
 
 ## Testes
 
-248 testes unitários e 23 end-to-end. Lighthouse: **98 em performance, 100 em
-acessibilidade, boas práticas e SEO**. Os testes que valem menção:
+**363 testes unitários e 76 end-to-end** (38 cenários × dois dispositivos). Os que valem menção:
 
 - **Ida e volta** — gerar, compor, rasterizar, decodificar e comparar com a entrada, nos quatro
-  níveis de correção e nas 14 molduras.
+  níveis de correção, nas 14 molduras e nos nove tipos de conteúdo.
 - **Equivalência do merge** — o `<path>` mesclado cobre exatamente os mesmos módulos que um
   retângulo por módulo, verificado por comparação de conjuntos e por rasterização pixel a pixel
   contra uma segunda implementação.
 - **Geometria do PDF** — o fluxo de conteúdo é lido de volta e a matriz reconstruída, o que prova
   que o PDF desenha o código certo sem precisar de um rasterizador de PDF.
+- **Vetores canônicos** — `crc16('123456789') === 0x29B1` para o CRC do Pix e
+  `crc32('123456789') === 0xCBF43926` para o do ZIP e do PNG. São o que separa a variante certa
+  das homônimas.
+- **ZIP e PNG lidos de volta** — o ZIP é percorrido pelo diretório central e descomprimido; o PNG
+  tem os chunks conferidos por CRC, o IDAT inflado e os pixels comparados. Nenhum dos dois passa
+  por "o arquivo abre".
 - **Tabela de capacidade** — as 160 células conferidas contra a biblioteca, mais uma verificação
   comportamental de fronteira independente da origem da tabela.
-- **Rede zero** — fluxo completo de exportação sem uma requisição fora da origem.
+- **Rede zero** — fluxo completo de exportação, PDF e lote sem uma requisição fora da origem.
 - **`border-radius: 0`** — varredura do DOM computado.
+
+### Lighthouse
+
+**99 / 100 / 100 / 100** (desempenho, acessibilidade, boas práticas, SEO), medido contra
+`npm run preview`, que serve o mesmo `out/` que vai para produção, com compressão.
+
+A compressão importa para o número: sem ela o mesmo build mede 78 em desempenho, e o mesmo vale
+para o commit anterior a esta fase — é o servidor, não o código. Por isso `scripts/preview.mjs`
+comprime os tipos textuais: um servidor de prévia que não comprime produz um número que não
+descreve nem produção nem desenvolvimento.
 
 ---
 
 ## Roadmap
 
-Em [docs/ROADMAP.md](docs/ROADMAP.md). O destaque da próxima fase é o **Pix (BR Code)**: payload
-EMV-MPM em TLV com checksum CRC16-CCITT, e o Pix estático é estático por natureza — encaixe
-exato na tese da marca.
+Em [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ---
 

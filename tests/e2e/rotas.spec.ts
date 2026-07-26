@@ -1,6 +1,14 @@
 import { expect, test } from '@playwright/test';
 
-const ROTAS = ['/', '/qr-code-url/', '/qr-code-texto/', '/qr-estatico-vs-dinamico/'];
+const ROTAS = [
+  '/',
+  '/qr-code-url/',
+  '/qr-code-texto/',
+  '/qr-code-pix/',
+  '/qr-code-wifi/',
+  '/qr-code-em-lote/',
+  '/qr-estatico-vs-dinamico/',
+];
 
 test.describe('rotas e acabamento', () => {
   test('toda rota responde com título e descrição próprios', async ({ page }) => {

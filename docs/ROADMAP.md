@@ -1,81 +1,85 @@
 # Roadmap
 
-A Fase 1 está concluída. O que segue está fora do escopo entregue e listado aqui para não se
-perder — e, no caso do Pix, porque é o item de maior valor que ainda falta.
+As fases 1, 2 e 3 estão concluídas. O que segue está fora do escopo entregue e listado aqui para
+não se perder.
 
 ---
 
-## Fase 2 — Tipos de conteúdo
+## ~~Fase 1 — núcleo, renderers, molduras e PDF~~ CONCLUÍDA
 
-Hoje o gerador aceita URL e texto livre. A Fase 2 acrescenta os formatos padronizados que fazem
-o QR ser útil fora do navegador.
+Matriz, display list, verificação de leitura por decodificação, sistema de marca, interface do
+gerador, 14 molduras, PDF vetorial com fontes embutidas, rotas de SEO e PWA offline.
 
-### Pix (BR Code) — o destaque
+## ~~Fase 2 — tipos de conteúdo~~ CONCLUÍDA
 
-Payload **EMV-MPM** em formato TLV com checksum **CRC16-CCITT**, conforme a especificação do
-Banco Central. Vale mais que os outros seis juntos, por três motivos que se somam:
+Nove tipos: URL, texto, **Pix (BR Code)**, Wi-Fi, contato (vCard), e-mail, SMS, telefone e
+geolocalização.
 
-1. **O Pix estático é estático por natureza.** Um BR Code sem valor definido carrega chave,
-   nome e cidade do recebedor no próprio payload. Encaixe exato na tese do produto — não há nem
-   como fazer dinâmico sem um servidor.
-2. **É o diferencial mais forte para público brasileiro.** Nenhum gerador gratuito nacional faz
-   isso bem.
-3. **É peça de portfólio de verdade.** Implementar uma especificação do Banco Central, com TLV
-   aninhado e CRC, diz mais sobre engenharia do que mais uma tela de CRUD.
+O Pix ganhou o segundo nível de verificação que esta seção previa: além de decodificar o desenho de
+volta, o BR Code é remontado a partir do TLV e o CRC-16 é conferido.
 
-A verificação de leitura já existente ganha um segundo nível aqui: além de decodificar de volta,
-dá para **validar o CRC** e reconferir que o TLV remonta aos campos originais.
+## ~~Fase 3 — lote e histórico~~ CONCLUÍDA
 
-### Os demais
-
-Wi-Fi (`WIFI:`), e-mail (`mailto:`), SMS, telefone (`tel:`), geolocalização (`geo:`) e vCard.
-Todos são serialização de formulário para string — trabalho direto, sem risco técnico. O único
-cuidado real é de capacidade: um vCard completo passa fácil de 500 bytes e empurra a versão do
-QR para cima, o que o painel de tamanho precisa comunicar.
+CSV → muitos QRs → ZIP, num Web Worker com progresso e verificação por linha. Histórico local em
+IndexedDB, com a configuração inteira restaurável.
 
 ---
 
-## Fase 3 — Lote e histórico
+## O que faria sentido depois
 
-**CSV em lote.** Muitas linhas viram muitos QRs, empacotados em ZIP. A arquitetura já ajuda: a
-composição é função pura, então gerar mil peças é um laço. O que precisa de cuidado é não travar
-a interface — o mesmo Web Worker da verificação serve, com relatório de progresso.
+Nada disto está prometido. É o que a arquitetura já comporta e alguém pediria primeiro.
 
-**Histórico local.** IndexedDB, não `localStorage`: guardar configurações com logo embutido
-estoura o limite de 5 MB rápido. O histórico nunca pode sair do navegador, o que aliás o torna
-mais simples — não há sincronização a resolver.
+### Lote de Pix
+
+Hoje o lote atende URL e texto — os dois tipos cujo conteúdo é um valor único. Uma planilha de
+cobranças (valor e identificador por linha, chave e recebedor fixos) é o próximo caso com demanda
+real, e cai bem no mesmo laço: só o mapeamento de colunas muda.
+
+Um CSV que preenchesse os doze campos de um vCard já seria outra coisa — um mapeador de esquema, não
+um lote.
+
+### Logo vetorial no PDF
+
+Hoje o logo não entra no PDF. Embutir imagem exigiria decodificar PNG/JPEG dentro do chunk, e um
+logo rasterizado num arquivo vendido como vetorial seria contraditório. A saída correta é converter
+o logo em traçado quando ele for SVG, e recusar raster com uma explicação. SVG e PNG seguem levando
+o logo.
+
+### Texto do SVG em contorno
+
+O `<text>` exportado referencia a família da fonte. Uma gráfica sem Archivo instalado substitui a
+fonte. O `@pdf-lib/fontkit` já está no projeto e sabe extrair contornos de glifo; dá para reusá-lo.
+Vale a pena quando alguém de fato levar um SVG com moldura para impressão.
 
 ---
 
-## Dívidas conhecidas da Fase 1
+## Dívidas conhecidas
 
 Registradas com o motivo, não como pendência esquecida.
 
-### Logo não entra no PDF
-
-Embutir imagem exigiria decodificar PNG/JPEG/SVG dentro do chunk de PDF, e um logo rasterizado
-num arquivo vendido como vetorial seria contraditório. SVG e PNG seguem levando o logo. A saída
-correta é converter o logo em traçado vetorial quando ele for SVG, e recusar raster com uma
-explicação — trabalho que não cabia na Fase 1.
-
-### Texto do SVG não é convertido em contorno
-
-O `<text>` exportado referencia a família da fonte. Uma gráfica sem Archivo instalado substitui a
-fonte. O `@pdf-lib/fontkit` já está no projeto e sabe extrair contornos de glifo; dá para reusá-lo
-para vetorizar o texto do SVG. Vale a pena quando alguém de fato levar um SVG com moldura para
-impressão.
-
 ### O eixo de rotação do teste de dano satura
 
-Mede sempre 45°, em todos os níveis de correção, porque os três padrões de localização tornam o
-QR invariante a rotação. Fica fora do relatório padrão por não informar nada, mas continua
-disponível sob demanda.
+Mede sempre 45°, em todos os níveis de correção, porque os três padrões de localização tornam o QR
+invariante a rotação. Fica fora do relatório padrão por não informar nada, mas continua disponível
+sob demanda.
 
 ### `jsqr` está parado na versão 1.4.0
 
 Sem releases há anos. Mitigado com versão fixada, interface `Decodificador` isolada e a suíte
-própria de ida e volta. Trocar por `zxing-wasm` é reescrever um arquivo — mas custaria 440 KB
-gzip contra 56 KB, e na investigação os dois concordaram em 24 de 24 casos.
+própria de ida e volta. Trocar por `zxing-wasm` é reescrever um arquivo — mas custaria 440 KB gzip
+contra 56 KB, e na investigação os dois concordaram em 24 de 24 casos.
+
+### O lote é limitado a 2.000 linhas
+
+Teto da interface, não do algoritmo. Acima disso o gargalo é memória do navegador para segurar
+todas as peças antes de fechar o ZIP; resolver de verdade exigiria escrever o ZIP em fluxo, com
+`File System Access API` ou `showSaveFilePicker`, que não existe em todos os navegadores.
+
+### O PNG do lote não usa filtro adaptativo
+
+Todas as linhas saem com filtro zero. Para um desenho de dois tons os filtros do PNG ajudam pouco —
+eles existem para fotografia — mas num lote com moldura colorida haveria alguns por cento a ganhar.
+Não medido, porque o custo do arquivo maior recai sobre o disco do usuário, não sobre a rede.
 
 ### `npm audit` reporta 9 vulnerabilidades high
 
@@ -93,5 +97,6 @@ Não são pendências. São coisas que o produto **não vai fazer**, porque fari
 - Rastreamento de leituras.
 - Conta de usuário, plano pago, limite de uso.
 - Analytics de terceiros.
+- Histórico sincronizado entre dispositivos.
 
 Qualquer um deles exigiria um servidor, e um servidor é exatamente o que pode ser desligado.
