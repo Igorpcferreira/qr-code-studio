@@ -150,3 +150,36 @@ test.describe('molduras', () => {
     expect(valor.length).toBeLessThanOrEqual(24);
   });
 });
+
+test.describe('exportação em PDF', () => {
+  test('o PDF é gerado no navegador, sem nenhuma requisição de rede', async ({ page }) => {
+    const externas: string[] = [];
+    page.on('request', (req) => {
+      const url = new URL(req.url());
+      if (url.origin !== 'http://localhost:4173' && url.protocol !== 'data:' && url.protocol !== 'blob:') {
+        externas.push(req.url());
+      }
+    });
+
+    await page.goto('/');
+    await page.getByLabel('Endereço a codificar').fill('https://arquivo.gov.br/registro/8841');
+    await expect(page.getByText('Leitura confirmada')).toBeVisible({ timeout: 15_000 });
+
+    const download = page.waitForEvent('download', { timeout: 30_000 });
+    await page.getByRole('button', { name: /Baixar PDF/ }).click();
+    const arquivo = await download;
+
+    expect(arquivo.suggestedFilename()).toMatch(/\.pdf$/);
+    // As fontes são embutidas no chunk: nem elas viajam pela rede.
+    expect(externas, 'nada pode sair do navegador').toEqual([]);
+  });
+
+  test('as opções de gráfica ficam disponíveis', async ({ page }) => {
+    await page.goto('/');
+    await page.getByLabel('Endereço a codificar').fill('https://exemplo.com');
+
+    await expect(page.getByRole('button', { name: 'A4' })).toBeVisible();
+    await expect(page.getByText('Preto 100% K')).toBeVisible();
+    await expect(page.getByText('Sangria de 3 mm')).toBeVisible();
+  });
+});
