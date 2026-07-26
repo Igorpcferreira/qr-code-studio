@@ -12,7 +12,7 @@
  *
  * O cache leva a versão no nome; a versão só muda quando este arquivo muda.
  */
-const VERSAO = 'qrcs-v1';
+const VERSAO = 'qrcs-v2';
 
 /**
  * `cache-first` com revalidação em segundo plano.

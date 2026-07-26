@@ -2,6 +2,11 @@
 
 > Documento de aprovação da Etapa 2. Nada é implementado antes do seu "pode seguir".
 > Escrito depois da investigação da Etapa 1, com todos os números medidos em experimentos reais.
+>
+> **Registro histórico.** As três fases foram entregues nos incrementos 1 a 13. Onde a
+> implementação divergiu deste plano — e ela divergiu em vários pontos, sempre por um motivo —
+> a decisão final está em [ARQUITETURA.md](ARQUITETURA.md) e o percurso em
+> [HANDOFF.md](HANDOFF.md). Em caso de conflito, este documento **não** é o que vale.
 
 ---
 

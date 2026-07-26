@@ -10,6 +10,7 @@ import { createServer } from 'node:http';
 import { createReadStream } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import { join, normalize, extname, resolve } from 'node:path';
+import { createGzip } from 'node:zlib';
 
 const ROOT = resolve(process.argv[2] ?? 'out');
 const PORT = Number(process.env.PORT ?? 4173);
@@ -59,10 +60,27 @@ const server = createServer(async (req, res) => {
     return res.end('404');
   }
 
-  res.writeHead(200, {
-    'content-type': MIME[extname(file)] ?? 'application/octet-stream',
-    'cache-control': 'no-store',
-  });
+  const tipo = MIME[extname(file)] ?? 'application/octet-stream';
+
+  /*
+   * Compressao para os tipos textuais, quando o cliente aceita.
+   *
+   * Nao e otimizacao deste servidor: e fidelidade. A hospedagem estatica serve
+   * tudo comprimido, e medir desempenho contra um servidor que nao comprime
+   * produz um numero que nao descreve producao nem o desenvolvimento — so o
+   * servidor de teste.
+   */
+  const comprimivel = /^(text\/|application\/(json|xml|manifest\+json)|image\/svg)/.test(tipo);
+  const aceitaGzip = (req.headers['accept-encoding'] ?? '').includes('gzip');
+
+  const cabecalhos = { 'content-type': tipo, 'cache-control': 'no-store' };
+
+  if (comprimivel && aceitaGzip) {
+    res.writeHead(200, { ...cabecalhos, 'content-encoding': 'gzip', vary: 'accept-encoding' });
+    return createReadStream(file).pipe(createGzip()).pipe(res);
+  }
+
+  res.writeHead(200, cabecalhos);
   createReadStream(file).pipe(res);
 });
 

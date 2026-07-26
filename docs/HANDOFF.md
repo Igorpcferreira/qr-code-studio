@@ -1,7 +1,7 @@
 # Handoff — continuação da refatoração
 
 > Documento vivo. Atualizado ao fim de cada incremento.
-> **Última atualização:** Fase 1 concluída (incremento 8).
+> **Última atualização:** Fases 1, 2 e 3 concluídas (incremento 13).
 >
 > Se você é uma nova sessão retomando este trabalho: leia este arquivo inteiro, depois
 > [PLANO.md](PLANO.md). O brand board em `docs/brand/` é autoritativo para qualquer decisão visual.
@@ -10,19 +10,24 @@
 
 ## 1. Onde estamos
 
-|                             |                                           |
-| --------------------------- | ----------------------------------------- |
-| Branch                      | `refactor/fase-1` (publicada em `origin`) |
-| Tag do estado anterior      | `v1.0.0` → commit `9f06e6b`               |
-| Último incremento concluído | **8 — rotas, PWA e acabamento**           |
-| Próximo                     | **Fase 2 — ver ROADMAP.md**               |
-| `npm run check`             | passando                                  |
-| Testes unitários            | 248 passando                              |
-| `npm run test:e2e`          | 23 testes passando                        |
-| Lighthouse                  | 98 / 100 / 100 / 100                      |
+|                             |                                                |
+| --------------------------- | ---------------------------------------------- |
+| Branch                      | `refactor/fase-1` (publicada em `origin`)      |
+| Tag do estado anterior      | `v1.0.0` → commit `9f06e6b`                    |
+| Último incremento concluído | **13 — acabamento das fases 2 e 3**            |
+| Próximo                     | **nada prometido** — ver ROADMAP.md            |
+| `npm run check`             | passando                                       |
+| Testes unitários            | 363 passando                                   |
+| `npm run test:e2e`          | 76 passando (38 cenários × 2 dispositivos)     |
+| Lighthouse                  | 99 / 100 / 100 / 100 (com compressão — ver §7) |
+| First-load                  | 220 KB gzip                                    |
 
 Deploy previsto na Vercel. Sem domínio próprio ainda — `src/lib/site.ts` resolve a URL a
 partir de `NEXT_PUBLIC_SITE_URL`, depois `VERCEL_PROJECT_PRODUCTION_URL`, depois localhost.
+
+Sete rotas: `/`, `/qr-code-url/`, `/qr-code-texto/`, `/qr-code-pix/`, `/qr-code-wifi/`,
+`/qr-code-em-lote/` e `/qr-estatico-vs-dinamico/`. Todas servem o mesmo gerador; a diferença é
+título, descrição e canônica.
 
 ---
 
@@ -52,6 +57,10 @@ Estas vêm do brief e do brand board. Violá-las é quebrar o produto, não apen
    O payload do QR jamais a contém.
 10. **Logo central:** teto de **16% de área**, exclusivo do nível `H`. Se a verificação de
     leitura falhar, **bloquear a exportação** com o motivo exato.
+11. **O Pix é estático, e o campo `01` prova isso.** O ponto de iniciação só é obrigatório quando
+    vale `12` ("use uma vez"), que é a marca de um código dinâmico. Emiti-lo contradiria o produto.
+12. **O histórico não sai do navegador.** IndexedDB local, sem sincronização, com botão de apagar
+    que apaga de verdade e um interruptor para não gravar nada.
 
 ---
 
@@ -153,6 +162,53 @@ primeiro justamente por isso.
 O `.gitattributes` normaliza no commit, então o conteúdo versionado sai certo — mas o
 `npm run check` reprova na árvore de trabalho e o erro parece vir do lugar errado. Use
 `open(p, 'w', encoding='utf-8', newline='')` ou rode `prettier --write` no arquivo depois.
+
+### Existem cinco CRCs chamados "CCITT" e eles discordam
+
+O Pix usa **CRC-16/CCITT-FALSE**: polinômio 0x1021, inicial 0xFFFF, sem reflexão e sem XOR final.
+O vetor canônico `crc16('123456789') === 0x29B1` é o que separa essa variante das outras quatro —
+nenhuma delas devolve esse número. O ZIP e o PNG usam **CRC-32** (0xEDB88320 refletido), cujo vetor
+é `0xCBF43926` para a mesma entrada. Os dois estão travados em teste; não reescreva de memória.
+
+E o checksum do BR Code cobre o payload **incluindo o cabeçalho `6304` do próprio campo de CRC**.
+A especificação enuncia isso em uma linha e é o erro mais comum de quem implementa.
+
+### Onze dígitos são CPF e celular ao mesmo tempo
+
+Uma chave Pix de 11 dígitos é ambígua. A especificação resolve exigindo telefone em formato
+internacional, então o `+` é o que decide: sem ele, 11 dígitos são CPF. Está em teste, porque a
+regra é invisível no código se alguém "simplificar" a classificação.
+
+### `Formularios` precisa da união distribuída, senão o tipo não protege nada
+
+A ação de escrita é `{ [K in TipoConteudo]: { conteudo: K; patch: Partial<Formularios[K]> } }[…]`.
+Escrita como `{ conteudo: TipoConteudo; patch: Partial<Formularios[TipoConteudo]> }`, o `patch`
+vira a união de todos os formulários e um campo de Wi-Fi passa num formulário de Pix. A distribuição
+é o que faz o compilador pegar isso.
+
+Dentro do reducer há uma asserção `as Formularios`, e ela é necessária: a chave computada faz o
+TypeScript perder a correspondência. A garantia já foi dada no ponto de chamada, que é onde o erro
+seria cometido.
+
+### `id` com espaço em `aria-labelledby` não referencia nada
+
+O controle segmentado usava `id={`legenda-${legenda}`}`. Com uma legenda de três palavras, o
+`aria-labelledby` passa a valer três referências inexistentes e o grupo fica sem nome acessível.
+Trocado por `useId`. Passou despercebido por incrementos porque nenhum teste pedia o grupo pelo
+nome — só os botões, que têm `aria-label` próprio.
+
+### Input escondido também precisa de rótulo
+
+O seletor de arquivo do lote é `sr-only` (quem convida ao clique é o botão desenhado), e ficou sem
+`<label>`. Escondido não é o mesmo que ausente: o leitor de tela ainda o encontra e anuncia só
+"arquivo". Custou 4 pontos de acessibilidade no Lighthouse até ganhar um rótulo visualmente oculto.
+
+### `setState` síncrono dentro de `useEffect` é erro de lint, não aviso
+
+O ESLint do React 19 reprova `setState` no corpo de um efeito. No histórico isso apareceu ao ler
+`localStorage` na montagem; a saída certa não é silenciar a regra, é ler dentro do callback
+assíncrono que já abre o IndexedDB — que também evita divergência entre a marcação pré-renderizada
+e a do cliente.
 
 ### `npm audit` reporta 9 high, 3 em produção
 
@@ -380,8 +436,60 @@ reais, duas delas contradizendo o brand board:
 3. **`aria-label` que substituía o rótulo visível** violava a WCAG 2.5.3. Agora o nome acessível
    começa pelo texto que está na tela.
 
-**Fase 1 encerrada.** O que segue está em [ROADMAP.md](ROADMAP.md), com as dívidas conhecidas
-registradas e justificadas.
+### ~~Incremento 9 — `/core/content`: Pix e os seis formatos~~ CONCLUÍDO
+
+`core/content/` em três arquivos (`tipos`, `formatos`, `pix`) e uma porta só:
+`montarConteudo(tipo, formularios) → { payload, problema, observacao }`.
+
+**Entre conteúdo e código passa uma string e nada mais.** É essa fronteira que faz os nove tipos
+caberem num diretório: nenhum renderer, nem a verificação, nem o lote sabem que eles existem.
+
+O Pix é o caso que justificou o módulo — EMV-MPM em TLV com CRC-16, dígitos verificadores de CPF e
+CNPJ conferidos, `conferirBrCode()` como segundo nível de verificação. Nos demais o risco não é
+algoritmo, é escape, e cada um tem ida e volta **por decodificação**, não por inspeção da string.
+
+### ~~Incremento 10 — os nove tipos na interface~~ CONCLUÍDO
+
+`PainelConteudo` recebe o `despachar` em vez de trinta callbacks: os outros painéis expõem uma
+função por campo porque têm três ou quatro, e aqui a fileira de props viraria ruído sem ganhar
+garantia — a ação já é tipada por tipo de conteúdo.
+
+`ControleSegmentado` ganhou `layout="grade"` em vez de nascer um segundo componente: nove opções
+não cabem numa linha, mas a semântica de `radiogroup` e a navegação por setas são as mesmas.
+
+### ~~Incremento 11 — lote CSV → ZIP~~ CONCLUÍDO
+
+`core/batch/` (`csv`, `zip`, `lote`, `protocol`, `worker`, `client`) e `core/render/png.ts`.
+
+**O lote chama `derivar`.** A inversão de camada é deliberada e documentada: é o que garante que a
+peça do lote seja idêntica à da prévia. Uma segunda composição, fiel hoje, poderia divergir amanhã —
+e a divergência só apareceria depois de mil etiquetas impressas.
+
+Três formatos escritos à mão pelo mesmo critério: o que a plataforma já resolve (deflate) vem dela;
+o que cabe em cem linhas (ZIP, CSV, PNG) não vira dependência num produto cuja tese é que nada sai
+do navegador.
+
+Verificação por linha ligada por padrão. É o defeito que ninguém descobre antes da impressão.
+
+### ~~Incremento 12 — histórico em IndexedDB~~ CONCLUÍDO
+
+`core/history/` dividido por testabilidade e não por camada: `registro.ts` é puro e roda no Node;
+`db.ts` é a única parte que depende do navegador e é coberta por E2E que recarrega a página.
+
+O identificador sai da configuração inteira, então voltar a uma antiga move a entrada para o topo
+em vez de duplicar. Sem IndexedDB (navegação privada), o painel avisa e o gerador segue inteiro.
+
+### ~~Incremento 13 — acabamento~~ CONCLUÍDO
+
+Navegação entre as sete rotas no rodapé — sem ela cada landing seria uma ilha, alcançável só por
+quem já sabia que existe. Cache do service worker versionado para `qrcs-v2`.
+
+**O servidor de prévia passou a comprimir.** Não é otimização dele: é fidelidade. Medir desempenho
+contra um servidor que não comprime produz um número que não descreve produção nem desenvolvimento.
+Ver §7.
+
+**Fases 1, 2 e 3 encerradas.** O que segue está em [ROADMAP.md](ROADMAP.md), com as dívidas
+conhecidas registradas e justificadas.
 
 ## 5. Comandos
 
@@ -397,10 +505,34 @@ npm run preview      # serve out/ na 4173
 
 ---
 
-## 6. Fases futuras (fora deste escopo)
+## 6. O que vem depois
 
-**Fase 2 — tipos de conteúdo:** Wi-Fi, e-mail, SMS, telefone, geo, vCard e **Pix (BR Code)**.
-O Pix é payload EMV-MPM em TLV com CRC16-CCITT, e o Pix estático é estático por natureza —
-encaixe perfeito na tese da marca e o diferencial mais forte para público brasileiro.
+Nada prometido. As três fases planejadas estão entregues; o que faria sentido a seguir, e as
+dívidas conhecidas com seus motivos, estão em [ROADMAP.md](ROADMAP.md).
 
-**Fase 3 — lote e histórico:** CSV → muitos QRs → ZIP. Histórico local em IndexedDB.
+O item com demanda mais provável é **lote de Pix** — uma planilha de cobranças com valor e
+identificador por linha, chave e recebedor fixos. Cai no mesmo laço; só o mapeamento de colunas
+muda.
+
+---
+
+## 7. Medir Lighthouse sem se enganar
+
+O número depende do servidor, e a diferença é grande o bastante para inverter a conclusão.
+
+```bash
+npm run build
+npm run preview
+npx lighthouse@12 http://localhost:4173/ --chrome-flags="--headless=new" \
+  --only-categories=performance,accessibility,best-practices,seo
+```
+
+Medido assim: **99 / 100 / 100 / 100**.
+
+Antes de o servidor de prévia comprimir, o mesmo build media **78** em desempenho — e o commit
+anterior a esta fase também, verificado por checkout. Ou seja: aquele 78 era do servidor, não do
+código. O `98` anotado no fim da Fase 1 foi medido em condições que não constam do repositório e
+não é reproduzível; use o procedimento acima e registre o resultado.
+
+Se o número de acessibilidade cair, olhe primeiro por `label`: os dois controles escondidos do
+projeto (o seletor de arquivo do lote e a caixa de marcação) dependem de rótulo explícito.

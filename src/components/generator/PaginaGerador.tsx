@@ -11,6 +11,15 @@ import { Gerador } from './Gerador';
  * gerador. Duplicar a interface por rota só criaria versões que divergem.
  */
 
+const ATALHOS = [
+  { href: '/qr-code-url/', rotulo: 'URL' },
+  { href: '/qr-code-pix/', rotulo: 'Pix' },
+  { href: '/qr-code-wifi/', rotulo: 'Wi-Fi' },
+  { href: '/qr-code-texto/', rotulo: 'Texto' },
+  { href: '/qr-code-em-lote/', rotulo: 'Lote por CSV' },
+  { href: '/qr-estatico-vs-dinamico/', rotulo: 'Estático ou dinâmico?' },
+] as const;
+
 export interface PaginaGeradorProps {
   titulo: string;
   subtitulo: string;
@@ -42,11 +51,23 @@ export function PaginaGerador({ titulo, subtitulo }: PaginaGeradorProps) {
         <Gerador />
       </main>
 
-      <footer className="border-hairline text-fg-muted type-mono mt-16 flex flex-wrap items-center justify-between gap-4 border-t px-8 py-5">
-        <span>Tudo acontece no seu navegador · nenhuma requisição carrega o que você digita</span>
-        <Link href="/qr-estatico-vs-dinamico/" className="text-accent-link underline">
-          Estático ou dinâmico?
-        </Link>
+      <footer className="border-hairline text-fg-muted mt-16 flex flex-col gap-5 border-t px-8 py-6">
+        {/*
+         * As landings existem por busca orgânica, e busca orgânica precisa de
+         * caminho interno: sem esta navegação cada rota seria uma ilha,
+         * alcançável só por quem já sabia que ela existe.
+         */}
+        <nav aria-label="Geradores por tipo" className="type-mono flex flex-wrap gap-x-6 gap-y-2">
+          {ATALHOS.map((atalho) => (
+            <Link key={atalho.href} href={atalho.href} className="text-accent-link underline">
+              {atalho.rotulo}
+            </Link>
+          ))}
+        </nav>
+
+        <span className="type-mono">
+          Tudo acontece no seu navegador · nenhuma requisição carrega o que você digita
+        </span>
       </footer>
     </>
   );

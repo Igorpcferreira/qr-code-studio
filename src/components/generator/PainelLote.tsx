@@ -139,6 +139,15 @@ export function PainelLote({ base }: PainelLoteProps) {
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
+        {/*
+         * O input fica escondido porque o botão desenhado é quem convida ao
+         * clique, mas escondido não é o mesmo que sem nome: um leitor de tela
+         * ainda o encontra na árvore, e sem rótulo ele é anunciado só como
+         * "arquivo". O Lighthouse pegou exatamente isso.
+         */}
+        <label htmlFor="lote-arquivo" className="sr-only">
+          Planilha CSV com o conteúdo de cada código
+        </label>
         <input
           ref={entrada}
           id="lote-arquivo"
