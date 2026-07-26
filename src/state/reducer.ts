@@ -1,3 +1,5 @@
+import type { IdMoldura } from '@/core/frames/tipos';
+import { normalizarChamada } from '@/core/frames/tipos';
 import type { ErrorCorrection } from '@/core/qr/types';
 import type { Dpi, Unidade } from '@/lib/units';
 import { DPI_PADRAO, converter } from '@/lib/units';
@@ -28,6 +30,14 @@ export interface EstadoGerador {
   readonly corEscura: string;
   readonly corClara: string;
   readonly logo: LogoSelecionado | null;
+
+  readonly moldura: IdMoldura;
+  /** Já normalizada: caixa alta e no máximo 24 caracteres. */
+  readonly chamada: string;
+  readonly corMoldura: string;
+  readonly incluirFicha: boolean;
+  readonly gradeColunas: number;
+  readonly gradeLinhas: number;
 }
 
 export const ESTADO_INICIAL: EstadoGerador = {
@@ -39,7 +49,23 @@ export const ESTADO_INICIAL: EstadoGerador = {
   corEscura: '#0e0f14',
   corClara: '#ffffff',
   logo: null,
+  moldura: 'nenhuma',
+  chamada: 'ESCANEIE-ME',
+  corMoldura: '#0e0f14',
+  incluirFicha: false,
+  gradeColunas: 3,
+  gradeLinhas: 3,
 };
+
+/** As quatro chamadas prontas do brand board. */
+export const CHAMADAS_SUGERIDAS = ['ESCANEIE-ME', 'APONTE A CÂMERA', 'VER REGISTRO', 'MENU DIGITAL'] as const;
+
+/** As três cores de moldura do board. Um acento só, sem decorativa. */
+export const CORES_MOLDURA = [
+  { nome: 'Carbon', hex: '#0e0f14' },
+  { nome: 'Ultramarine', hex: '#2c36f0' },
+  { nome: 'Steel', hex: '#6e7280' },
+] as const;
 
 export type AcaoGerador =
   | { readonly tipo: 'conteudo'; readonly valor: string }
@@ -52,6 +78,11 @@ export type AcaoGerador =
   | { readonly tipo: 'inverter-cores' }
   | { readonly tipo: 'logo'; readonly valor: LogoSelecionado | null }
   | { readonly tipo: 'logo-tamanho'; readonly valor: number }
+  | { readonly tipo: 'moldura'; readonly valor: IdMoldura }
+  | { readonly tipo: 'chamada'; readonly valor: string }
+  | { readonly tipo: 'cor-moldura'; readonly valor: string }
+  | { readonly tipo: 'incluir-ficha'; readonly valor: boolean }
+  | { readonly tipo: 'grade'; readonly colunas: number; readonly linhas: number }
   | { readonly tipo: 'limpar' };
 
 /** Faixa útil: abaixo disso não imprime, acima vira arquivo sem propósito. */
@@ -109,6 +140,26 @@ export function reducer(estado: EstadoGerador, acao: AcaoGerador): EstadoGerador
 
     case 'logo-tamanho':
       return estado.logo === null ? estado : { ...estado, logo: { ...estado.logo, fracaoLado: acao.valor } };
+
+    case 'moldura':
+      return { ...estado, moldura: acao.valor };
+
+    case 'chamada':
+      // Normaliza na entrada: caixa alta e teto de 24 caracteres, sempre.
+      return { ...estado, chamada: normalizarChamada(acao.valor) };
+
+    case 'cor-moldura':
+      return { ...estado, corMoldura: acao.valor };
+
+    case 'incluir-ficha':
+      return { ...estado, incluirFicha: acao.valor };
+
+    case 'grade':
+      return {
+        ...estado,
+        gradeColunas: Math.max(1, Math.min(8, Math.round(acao.colunas))),
+        gradeLinhas: Math.max(1, Math.min(12, Math.round(acao.linhas))),
+      };
 
     case 'limpar':
       // Preserva as preferências de saída; zera só o que é do artefato.

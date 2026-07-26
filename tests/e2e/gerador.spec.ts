@@ -107,3 +107,46 @@ test.describe('gerador', () => {
     await expect(page.getByRole('radio', { name: /Correção L/ })).toHaveAttribute('aria-checked', 'true');
   });
 });
+
+test.describe('molduras', () => {
+  test('aplica moldura e a chamada não entra no conteúdo codificado', async ({ page }) => {
+    await page.goto('/');
+    await page.getByLabel('Endereço a codificar').fill('https://arquivo.gov.br/registro/8841');
+    await expect(page.getByText('Leitura confirmada')).toBeVisible({ timeout: 15_000 });
+
+    await page.getByRole('button', { name: 'Rótulo inferior' }).click();
+    await page.getByLabel('Chamada de ação').fill('menu digital');
+
+    // Normalizada para caixa alta na entrada.
+    await expect(page.getByLabel('Chamada de ação')).toHaveValue('MENU DIGITAL');
+
+    // A prévia passa a mostrar o texto, e o código continua lendo o mesmo.
+    await expect(page.getByRole('img', { name: /QR Code que codifica/ }).locator('text')).toHaveText(
+      'MENU DIGITAL',
+    );
+    await expect(page.getByRole('img', { name: /QR Code que codifica: https:\/\/arquivo/ })).toBeVisible();
+    await expect(page.getByText('Leitura confirmada')).toBeVisible({ timeout: 15_000 });
+  });
+
+  test('a grade repete o código na folha e continua legível', async ({ page }) => {
+    await page.goto('/');
+    await page.getByLabel('Endereço a codificar').fill('https://arquivo.gov.br/registro/8841');
+    await page.getByRole('button', { name: 'Grade recortável' }).click();
+    await page.getByRole('button', { name: '2 × 2 = 4' }).click();
+
+    // Escopado à prévia: os ícones da interface também usam <path>.
+    const previa = page.getByRole('img', { name: /QR Code que codifica/ });
+    await expect(previa.locator('path')).toHaveCount(4);
+    await expect(page.getByText('Leitura confirmada')).toBeVisible({ timeout: 15_000 });
+  });
+
+  test('a chamada é truncada em 24 caracteres', async ({ page }) => {
+    await page.goto('/');
+    await page.getByLabel('Endereço a codificar').fill('https://exemplo.com');
+    await page.getByRole('button', { name: 'Rótulo inferior' }).click();
+
+    await page.getByLabel('Chamada de ação').fill('a'.repeat(60));
+    const valor = await page.getByLabel('Chamada de ação').inputValue();
+    expect(valor.length).toBeLessThanOrEqual(24);
+  });
+});
