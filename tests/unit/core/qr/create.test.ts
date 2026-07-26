@@ -1,6 +1,6 @@
 import { createRequire } from 'node:module';
 import { describe, expect, it } from 'vitest';
-import { capacidadeBytes } from '@/core/qr/capacity';
+import { capacidadeBytes, codewordsDeDados } from '@/core/qr/capacity';
 import { criarArtefato } from '@/core/qr/create';
 import type { QrArtifact } from '@/core/qr/types';
 import { NIVEIS_CORRECAO, modulosDaVersao, versaoDosModulos } from '@/core/qr/types';
@@ -121,6 +121,67 @@ describe('metadados do artefato', () => {
       expect(a.capacityBytes).toBe(capacidadeBytes(a.version, nivel));
       expect(a.byteLength).toBeLessThanOrEqual(a.capacityBytes);
     }
+  });
+
+  /**
+   * A ocupacao real, que e o que a ficha tecnica mostra.
+   *
+   * `capacityBytes` e o teto em modo Byte e nao serve para medir quao cheio o
+   * codigo esta: o codificador quebra o conteudo em segmentos e escolhe o modo
+   * mais denso para cada um. Um Pix de 132 caracteres cabe numa versao cuja
+   * capacidade em modo Byte e 98 — e a ficha anunciava "132 / 98 bytes", que e
+   * impossivel de ler e falso.
+   */
+  describe('ocupacao em bits', () => {
+    const CORPUS = [
+      URL_EXEMPLO,
+      'texto simples',
+      '1234567890'.repeat(8),
+      'ABC 123 DEF 456 GHI',
+      'ação, çedilha e acentuação',
+      // Pix real: digitos, maiusculas e minusculas misturados — os tres modos.
+      '00020126460014br.gov.bcb.pix011111144477735520400005303986540549.905802BR' +
+        '5916Padaria Sao Joao6009Sao Paulo62140510PEDIDO77886304ABCD',
+      'BEGIN:VCARD\r\nVERSION:3.0\r\nN:Ferreira;Igor;;;\r\nFN:Igor Ferreira\r\nEND:VCARD\r\n',
+    ];
+
+    it('nunca passa da capacidade da versao escolhida', () => {
+      for (const conteudo of CORPUS) {
+        for (const nivel of NIVEIS_CORRECAO) {
+          const a = exigirArtefato(conteudo, nivel);
+          expect(a.usedBits, `${nivel}: ${conteudo.slice(0, 20)}`).toBeLessThanOrEqual(a.dataBits);
+        }
+      }
+    });
+
+    /**
+     * Guarda de baixo, sem a qual a contagem poderia estar subestimada e ainda
+     * assim passar no teste acima: o conteudo nao cabe na versao anterior. Se a
+     * tabela de indicadores de contagem estiver errada para menos, esta
+     * assercao quebra.
+     */
+    it('nao caberia na versao anterior', () => {
+      for (const conteudo of CORPUS) {
+        for (const nivel of NIVEIS_CORRECAO) {
+          const a = exigirArtefato(conteudo, nivel);
+          if (a.version === 1) continue;
+
+          const anterior = codewordsDeDados(a.version - 1, nivel) * 8;
+          expect(a.usedBits, `${nivel}: ${conteudo.slice(0, 20)}`).toBeGreaterThan(anterior);
+        }
+      }
+    });
+
+    it('o Pix ocupa menos bits do que ocuparia em modo Byte puro', () => {
+      const pix = CORPUS[5] ?? '';
+      const a = exigirArtefato(pix, 'H');
+
+      // 132 caracteres em modo Byte custariam 1.056 bits; a mistura custa bem menos.
+      expect(a.usedBits).toBeLessThan(a.byteLength * 8);
+      // E e exatamente por isso que ele cabe numa versao de capacidade menor.
+      expect(a.byteLength).toBeGreaterThan(a.capacityBytes);
+      expect(Math.ceil(a.usedBits / 8)).toBeLessThanOrEqual(a.dataBits / 8);
+    });
   });
 
   it('conta bytes em UTF-8, nao caracteres', () => {

@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest';
+import { comporMoldura } from '@/core/frames/molduras';
 import { criarArtefato } from '@/core/qr/create';
 import type { ErrorCorrection, QrArtifact } from '@/core/qr/types';
 import type { Bitmap } from '@/core/render/raster';
 import { rasterizarCena } from '@/core/render/raster';
 import { construirCenaBasica } from '@/core/scene/build';
+import type { QrNode, Scene } from '@/core/scene/types';
+import { paint } from '@/core/scene/types';
+import { recortarParaLeitura } from '@/core/verify/verify';
 import {
   EIXOS_PADRAO,
   aplicarBorrao,
@@ -138,5 +142,51 @@ describe('medirMargemDeDano', () => {
       })[0];
       expect(margem?.tolerancia, nivel).toBe(45);
     }
+  });
+});
+
+/**
+ * A margem de dano descreve o codigo, nao a peca.
+ *
+ * O worker mede sobre o mesmo recorte que a verificacao usa. Sem isso, uma peca
+ * com moldura teria o quadrado de oclusao centrado no papel em vez do codigo, e
+ * a mesma matriz reportaria toleranciais diferentes so por trocar a moldura —
+ * um numero que muda sem o codigo mudar nao informa nada.
+ */
+describe('independencia da moldura', () => {
+  it('a margem e a mesma com e sem moldura', () => {
+    const criacao = criarArtefato(CONTEUDO, 'H');
+    if (!criacao.ok) throw new Error('esperava sucesso');
+
+    const medir = (cena: Scene, codigo: QrNode): number => {
+      const recorte = recortarParaLeitura(cena, codigo);
+      const escala = escalaParaVerificacao(codigo.side, codigo.artifact.sizeComQuietZone, 8);
+      const bitmap = rasterizarCena(recorte, escala);
+      return (
+        medirMargemDeDano(bitmap, CONTEUDO, decodificadorJsQr, { eixos: ['oclusao'] })[0]?.tolerancia ?? -1
+      );
+    };
+
+    const opcoes = {
+      artefato: criacao.artefato,
+      ladoCodigoMm: 40,
+      dark: paint('#0e0f14'),
+      light: paint('#ffffff'),
+      corMoldura: paint('#0e0f14'),
+      chamada: 'ESCANEIE-ME',
+      logo: null,
+      incluirFicha: false,
+    };
+
+    const nua = comporMoldura('nenhuma', opcoes);
+    const comRotulo = comporMoldura('inferior', opcoes);
+
+    const codigoNu = nua.nodes.find((no): no is QrNode => no.kind === 'qr');
+    const codigoComRotulo = comRotulo.nodes.find((no): no is QrNode => no.kind === 'qr');
+    if (codigoNu === undefined || codigoComRotulo === undefined) throw new Error('sem codigo');
+
+    const margemNua = medir(nua, codigoNu);
+    expect(margemNua).toBeGreaterThan(0);
+    expect(medir(comRotulo, codigoComRotulo)).toBe(margemNua);
   });
 });

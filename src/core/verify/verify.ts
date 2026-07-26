@@ -64,6 +64,18 @@ function codigoDaCena(cena: Scene): QrNode | null {
  * `nosSobrepondoOCodigo`, e o que invade de propósito (o logo) é transladado
  * junto e continua sendo avaliado aqui.
  */
+/**
+ * Recorta a cena para a regiao de um codigo — o que um scanner de fato enxerga.
+ *
+ * Exportado porque a medicao de dano precisa do mesmo recorte. Sem ele, a
+ * margem de dano de uma peca com moldura seria medida sobre a peca inteira: o
+ * quadrado de oclusao ficaria centrado no papel e nao no codigo, e a mesma
+ * matriz reportaria toleranciais diferentes so por trocar a moldura.
+ */
+export function recortarParaLeitura(cena: Scene, codigo: QrNode): Scene {
+  return cenaDeLeitura(cena, codigo);
+}
+
 function cenaDeLeitura(cena: Scene, codigo: QrNode): Scene {
   const inicio = cena.nodes.indexOf(codigo);
   const nos: SceneNode[] = [{ ...codigo, x: 0, y: 0 }];

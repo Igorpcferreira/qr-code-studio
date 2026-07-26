@@ -67,8 +67,23 @@ export interface QrArtifact {
   /** Bytes UTF-8 do payload. */
   readonly byteLength: number;
 
-  /** Teto de bytes desta versao neste nivel de correcao. */
+  /**
+   * Teto de bytes desta versao neste nivel, **em modo Byte**.
+   *
+   * Nao serve para medir ocupacao: o codificador usa modos mais densos quando
+   * pode, entao um payload maior que este numero ainda cabe. Para "quao cheio
+   * esta o codigo", use `usedBits` e `dataBits`.
+   */
   readonly capacityBytes: number;
+
+  /** Bits de dados que esta versao/nivel comporta, somando todos os modos. */
+  readonly dataBits: number;
+
+  /**
+   * Bits que o conteudo de fato ocupa, com indicador de modo e de contagem de
+   * caracteres de cada segmento. Sempre menor ou igual a `dataBits`.
+   */
+  readonly usedBits: number;
 
   /** Modulo escuro? Fora dos limites devolve false (a quiet zone e clara). */
   isDark(x: number, y: number): boolean;

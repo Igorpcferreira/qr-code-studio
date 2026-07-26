@@ -96,6 +96,9 @@ export interface SceneMeta {
   readonly errorCorrection: string;
   readonly capacityBytes: number;
   readonly byteLength: number;
+  /** Ocupacao real do contentor, os dois em bits. Ver `QrArtifact.usedBits`. */
+  readonly dataBits: number;
+  readonly usedBits: number;
   readonly quietZone: number;
   readonly payload: string;
 }

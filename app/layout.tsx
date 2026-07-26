@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { Archivo, IBM_Plex_Mono, IBM_Plex_Sans } from 'next/font/google';
 import { RegistrarServiceWorker } from '@/components/RegistrarServiceWorker';
 import { SITE_NAME, SITE_URL } from '@/lib/site';
+import { SCRIPT_TEMA } from '@/lib/tema';
 import './globals.css';
 
 /**
@@ -44,7 +45,7 @@ export const metadata: Metadata = {
   description:
     'Gere QR Codes estáticos em SVG, PNG e PDF vetorial. O endereço fica codificado dentro do próprio desenho: não expira, não depende deste site e nada sai do seu navegador.',
   applicationName: SITE_NAME,
-  authors: [{ name: 'Igor Ferreira' }],
+  authors: [{ name: 'Igor de Castro', url: 'https://www.linkedin.com/in/igor-cferreira/' }],
   openGraph: {
     type: 'website',
     locale: 'pt_BR',
@@ -63,6 +64,15 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="pt-BR" className={`${archivo.variable} ${plexSans.variable} ${plexMono.variable}`}>
+      <head>
+        {/*
+         * Aplica o tema escolhido antes da primeira pintura. Precisa ser
+         * síncrono e inline: ler a preferência depois da hidratação faria a
+         * página piscar no tema errado. Não faz requisição — a promessa de que
+         * nada sai do navegador continua de pé, e o E2E de rede zero cobre.
+         */}
+        <script dangerouslySetInnerHTML={{ __html: SCRIPT_TEMA }} />
+      </head>
       <body>
         {children}
         <RegistrarServiceWorker />

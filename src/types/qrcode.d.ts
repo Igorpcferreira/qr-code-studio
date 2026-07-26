@@ -26,12 +26,25 @@ declare module 'qrcode' {
     readonly bit: number;
   }
 
+  /**
+   * Um trecho do conteudo num unico modo de codificacao.
+   *
+   * A biblioteca quebra o texto em segmentos e escolhe o modo mais denso para
+   * cada um — por isso um payload pode ocupar menos bits do que teria em modo
+   * Byte puro. `getBitsLength()` conta so os dados: o indicador de modo e o de
+   * contagem de caracteres ficam de fora e sao somados por quem monta a ficha.
+   */
+  export interface QrSegment {
+    readonly mode: { readonly id: string };
+    getBitsLength(): number;
+  }
+
   export interface QrCodeData {
     readonly modules: QrBitMatrix;
     readonly version: number;
     readonly errorCorrectionLevel: QrErrorCorrectionLevel;
     readonly maskPattern: number;
-    readonly segments: readonly unknown[];
+    readonly segments: readonly QrSegment[];
   }
 
   export interface QrCreateOptions {

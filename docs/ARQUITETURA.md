@@ -120,6 +120,22 @@ A tabela de capacidade também não é API pública — só existe em `qrcode/li
 isso `core/qr/capacity.ts` tem tabela própria, guardada por dois testes: cross-check das 160
 células contra a biblioteca, e verificação comportamental de fronteira independente da origem.
 
+### Duas capacidades, e confundi-las produz um número impossível
+
+`capacityBytes` é quanto **texto em modo Byte** cabe. Não serve para medir ocupação, porque o
+codificador **não usa um modo só**: ele quebra o conteúdo em segmentos e escolhe Numérico,
+Alfanumérico ou Byte para cada um. Um Pix de 132 caracteres cabe numa versão cuja capacidade em modo
+Byte é 98, porque dígito custa 3,33 bits em vez de 8.
+
+Por isso existe a segunda tabela, `CODEWORDS_DE_DADOS` — o tamanho do contêiner — e o artefato
+carrega `usedBits` e `dataBits`. A ficha técnica compara os dois, e é essa comparação que impede
+"132 / 98 bytes", que é exatamente o tipo de número impossível que o projeto corrige no material de
+origem.
+
+`usedBits` soma, por segmento, os 4 bits do indicador de modo, o indicador de contagem de caracteres
+(Tabela 3 do ISO/IEC 18004) e os bits de dados. Duas guardas: nunca passa da capacidade da versão, e
+nunca caberia na versão anterior — a segunda é o que pega uma tabela de indicadores subestimada.
+
 ---
 
 ## Verificação de leitura
@@ -136,6 +152,10 @@ causa isolada por eliminação, e o veredito carrega `confirmada: true`.
 Polaridade invertida é checada antes de tudo, sem experimento: inverter as duas cores mantém a
 razão de contraste idêntica, então nenhum teste de cor a distinguiria. O decodificador roda com
 `dontInvert` justamente para que esse caso falhe aqui, e não no celular do usuário.
+
+A medição de margem de dano usa **o mesmo recorte**, e não a peça inteira. Sem isso o quadrado de
+oclusão ficaria centrado no papel em vez do código, e a mesma matriz reportaria tolerâncias
+diferentes só por trocar a moldura — um número que muda sem o código mudar não informa nada.
 
 Tudo isso vive num Web Worker (`core/verify/worker.ts`) com debounce e política de
 último-pedido-vence. A `Scene` inteira viaja para lá; só o `QrArtifact` precisa ser desidratado e
