@@ -1,7 +1,7 @@
 # Handoff — continuação da refatoração
 
 > Documento vivo. Atualizado ao fim de cada incremento.
-> **Última atualização:** incremento 3 concluído.
+> **Última atualização:** incremento 4 concluído.
 >
 > Se você é uma nova sessão retomando este trabalho: leia este arquivo inteiro, depois
 > [PLANO.md](PLANO.md). O brand board em `docs/brand/` é autoritativo para qualquer decisão visual.
@@ -14,10 +14,10 @@
 | --------------------------- | ----------------------------------------- |
 | Branch                      | `refactor/fase-1` (publicada em `origin`) |
 | Tag do estado anterior      | `v1.0.0` → commit `9f06e6b`               |
-| Último incremento concluído | **3 — verificação de leitura**            |
-| Próximo                     | **4 — design system**                     |
+| Último incremento concluído | **4 — design system**                     |
+| Próximo                     | **5 — interface do gerador**              |
 | `npm run check`             | passando                                  |
-| Testes unitários            | 142 passando                              |
+| Testes unitários            | 176 passando                              |
 | `npm run test:e2e`          | 3 testes passando                         |
 
 Deploy previsto na Vercel. Sem domínio próprio ainda — `src/lib/site.ts` resolve a URL a
@@ -253,12 +253,27 @@ medirMargemDeDano(bitmap, esperado, decodificador)  // margem por eixo
 foi fechado — falta um teste que decodifique as duas saídas e confirme que concordam. Precisa
 de ambiente com canvas, então cabe melhor no E2E do incremento 5.
 
-### Incremento 4 — Design system ← PRÓXIMO
+### ~~Incremento 4 — Design system~~ CONCLUÍDO
 
-`Logo.tsx` com geometria 7:5:3 e **troca automática para o ícone cheio abaixo de 16px**.
-Os 8 ícones do board. Componentes `/ui` nos 4 tipos × 3 estados, claro e escuro.
+`components/brand/`: `Logo` (geometria 7:5:3, **troca automática para o ícone cheio abaixo de
+16 px**), `Icone` (os 8 do board, união de string fechada), `SeloPermanencia` (sem prop de
+texto — se expusesse, alguém acabaria passando outro literal).
 
-### Incremento 5 — Interface do gerador
+`components/ui/`: `Botao` (4 tipos), `Campo` (3 estados), `ControleSegmentado`, `Chip`,
+`Caixa`, `Aviso`.
+
+**Acessibilidade decidida no componente, não deixada para depois:** o segmentado é
+`radiogroup` com navegação por setas e roving tabindex, não fileira de botões; a `Caixa` usa
+`<input type="checkbox">` real apenas escondido visualmente; `Campo` liga ajuda por
+`aria-describedby` e só vira `role="alert"` no erro — anunciar a ajuda neutra a cada tecla
+seria ruído. Nenhum componente declara foco próprio: o `:focus-visible` global já aplica o
+anel de 2 px do board, e duplicar abriria espaço para divergência.
+
+**Testes com `renderToStaticMarkup`**, sem biblioteca de teste de componente. Verificam
+geometria, contagem de elementos e atributos ARIA — o que importa neste nível. Interação fica
+com o E2E.
+
+### Incremento 5 — Interface do gerador ← PRÓXIMO
 
 Campo, prévia com quiet zone visível, **ficha técnica com números reais**, seletor de
 correção, tamanho/DPI, cor com indicador de contraste, logo, relatório de verificação.
