@@ -20,6 +20,7 @@ import { ESTADO_INICIAL, reducer } from '@/state/reducer';
 import { FichaTecnica } from './FichaTecnica';
 import { PainelConteudo } from './PainelConteudo';
 import { PainelCor } from './PainelCor';
+import { PainelHistorico } from './PainelHistorico';
 import { PainelExportacao } from './PainelExportacao';
 import { PainelLogo } from './PainelLogo';
 import { PainelLote } from './PainelLote';
@@ -250,6 +251,12 @@ export function Gerador() {
        */}
       <div className="mt-14 flex flex-col gap-10">
         <PainelLote base={estado} />
+        <PainelHistorico
+          estado={estado}
+          verificado={veredicto?.ok === true}
+          payload={artefato?.payload ?? null}
+          aoRestaurar={(restaurado) => despachar({ tipo: 'restaurar', estado: restaurado })}
+        />
       </div>
     </>
   );

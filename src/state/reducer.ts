@@ -108,6 +108,7 @@ export type AcaoGerador =
   | { readonly tipo: 'cor-moldura'; readonly valor: string }
   | { readonly tipo: 'incluir-ficha'; readonly valor: boolean }
   | { readonly tipo: 'grade'; readonly colunas: number; readonly linhas: number }
+  | { readonly tipo: 'restaurar'; readonly estado: EstadoGerador }
   | { readonly tipo: 'limpar' };
 
 /** Faixa útil: abaixo disso não imprime, acima vira arquivo sem propósito. */
@@ -200,6 +201,17 @@ export function reducer(estado: EstadoGerador, acao: AcaoGerador): EstadoGerador
         gradeColunas: Math.max(1, Math.min(8, Math.round(acao.colunas))),
         gradeLinhas: Math.max(1, Math.min(12, Math.round(acao.linhas))),
       };
+
+    case 'restaurar':
+      /*
+       * Substitui o estado inteiro, não faz merge. Um registro do histórico é
+       * uma configuração que já funcionou; misturá-la com a atual produziria
+       * uma terceira que ninguém verificou.
+       *
+       * As chaves ausentes ganham o padrão para que um registro gravado por
+       * uma versão anterior continue restaurável.
+       */
+      return { ...ESTADO_INICIAL, ...acao.estado };
 
     case 'limpar':
       // Preserva as preferências de saída; zera só o que é do artefato.
