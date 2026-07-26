@@ -1,3 +1,6 @@
+import { montarConteudo } from '@/core/content';
+import { conferirBrCode } from '@/core/content/pix';
+import type { ResultadoConteudo } from '@/core/content/tipos';
 import { comporMoldura } from '@/core/frames/molduras';
 import { criarArtefato } from '@/core/qr/create';
 import type { ResultadoCriacao } from '@/core/qr/create';
@@ -23,6 +26,8 @@ import { ladoMm } from './reducer';
 
 export interface Derivado {
   readonly ladoMm: number;
+  /** Payload montado a partir do formulário do tipo corrente. */
+  readonly conteudo: ResultadoConteudo;
   readonly resultado: ResultadoCriacao;
   readonly artefato: QrArtifact | null;
   readonly cena: Scene | null;
@@ -31,16 +36,29 @@ export interface Derivado {
   readonly logo: VeredictoLogo | null;
   /** Lado do logo em mm, quando há logo. */
   readonly ladoLogoMm: number | null;
+  /**
+   * Conferência estrutural do BR Code, só quando o tipo é Pix.
+   *
+   * É o segundo nível da verificação: decodificar o QR prova que a string
+   * sobreviveu ao desenho, isto prova que a string é um Pix válido. São dois
+   * defeitos diferentes e nenhum cobre o outro.
+   */
+  readonly brCode: { readonly ok: boolean; readonly motivo: string | null } | null;
 }
 
 export function derivar(estado: EstadoGerador): Derivado {
   const lado = ladoMm(estado);
-  const resultado = criarArtefato(estado.conteudo.trim(), estado.nivel);
+  const conteudo = montarConteudo(estado.tipoConteudo, estado.formularios);
+  const resultado = criarArtefato(conteudo.payload, estado.nivel);
   const contraste = avaliarContraste(estado.corEscura, estado.corClara);
+
+  const brCode =
+    estado.tipoConteudo === 'pix' && conteudo.payload.length > 0 ? conferirBrCode(conteudo.payload) : null;
 
   if (!resultado.ok) {
     return {
       ladoMm: lado,
+      conteudo,
       resultado,
       artefato: null,
       cena: null,
@@ -48,6 +66,7 @@ export function derivar(estado: EstadoGerador): Derivado {
       impressao: null,
       logo: null,
       ladoLogoMm: null,
+      brCode,
     };
   }
 
@@ -80,6 +99,7 @@ export function derivar(estado: EstadoGerador): Derivado {
 
   return {
     ladoMm: lado,
+    conteudo,
     resultado,
     artefato,
     cena,
@@ -91,5 +111,6 @@ export function derivar(estado: EstadoGerador): Derivado {
     }),
     logo,
     ladoLogoMm,
+    brCode,
   };
 }

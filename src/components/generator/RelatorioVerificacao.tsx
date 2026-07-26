@@ -15,9 +15,20 @@ export interface RelatorioVerificacaoProps {
   veredicto: Veredicto | null;
   margens: readonly MargemDano[] | null;
   verificando: boolean;
+  /**
+   * Conferência estrutural do BR Code, quando o conteúdo é Pix. Independente
+   * da decodificação: um payload pode voltar intacto do desenho e ainda assim
+   * não ser um Pix válido.
+   */
+  brCode?: { readonly ok: boolean; readonly motivo: string | null } | null;
 }
 
-export function RelatorioVerificacao({ veredicto, margens, verificando }: RelatorioVerificacaoProps) {
+export function RelatorioVerificacao({
+  veredicto,
+  margens,
+  verificando,
+  brCode = null,
+}: RelatorioVerificacaoProps) {
   if (verificando) {
     return (
       <p className="type-small text-fg-muted flex items-center gap-2" aria-live="polite">
@@ -33,6 +44,13 @@ export function RelatorioVerificacao({ veredicto, margens, verificando }: Relato
     return (
       <Aviso tom="sucesso" titulo="Leitura confirmada">
         <p>O código foi decodificado de volta e devolveu exatamente o conteúdo digitado.</p>
+        {brCode === null ? null : (
+          <p className="type-mono mt-2">
+            {brCode.ok
+              ? 'BR Code válido: CRC-16 confere e os campos obrigatórios remontam.'
+              : `BR Code inválido: ${brCode.motivo}`}
+          </p>
+        )}
         {margens !== null && margens.length > 0 ? (
           <ul className="mt-2 flex flex-col gap-1">
             {margens.map((m) => (

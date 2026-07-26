@@ -10,16 +10,15 @@ import { VerificacaoCancelada, criarClienteVerificacao } from '@/core/verify/cli
 import type { Veredicto } from '@/core/verify/verify';
 import { Aviso } from '@/components/ui/Aviso';
 import { Botao } from '@/components/ui/Botao';
-import { Campo } from '@/components/ui/Campo';
 import { ControleSegmentado } from '@/components/ui/ControleSegmentado';
 import type { Bitmap } from '@/core/render/raster';
 import { bitmapDeDataUrl } from '@/lib/imagem';
 import * as fmt from '@/lib/format';
 import { converter } from '@/lib/units';
-import { validarUrl } from '@/lib/url';
 import { derivar } from '@/state/derivar';
 import { ESTADO_INICIAL, reducer } from '@/state/reducer';
 import { FichaTecnica } from './FichaTecnica';
+import { PainelConteudo } from './PainelConteudo';
 import { PainelCor } from './PainelCor';
 import { PainelExportacao } from './PainelExportacao';
 import { PainelLogo } from './PainelLogo';
@@ -27,13 +26,6 @@ import { PainelMoldura } from './PainelMoldura';
 import { PainelTamanho } from './PainelTamanho';
 import { Previa } from './Previa';
 import { RelatorioVerificacao } from './RelatorioVerificacao';
-
-type TipoConteudo = 'url' | 'texto';
-
-const TIPOS = [
-  { valor: 'url', rotulo: 'URL', descricao: 'Endereço de site' },
-  { valor: 'texto', rotulo: 'Texto', descricao: 'Texto livre' },
-] as const satisfies readonly { valor: TipoConteudo; rotulo: string; descricao: string }[];
 
 const NIVEIS = NIVEIS_CORRECAO.map((n) => ({
   valor: n,
@@ -43,7 +35,6 @@ const NIVEIS = NIVEIS_CORRECAO.map((n) => ({
 
 export function Gerador() {
   const [estado, despachar] = useReducer(reducer, ESTADO_INICIAL);
-  const [tipo, setTipo] = useState<TipoConteudo>('url');
 
   const [veredicto, setVeredicto] = useState<Veredicto | null>(null);
   const [margens, setMargens] = useState<readonly MargemDano[] | null>(null);
@@ -108,33 +99,28 @@ export function Gerador() {
     };
   }, [cena, logoDataUrl]);
 
-  const bruto = estado.conteudo;
-  const validacao = tipo === 'url' && bruto.trim().length > 0 ? validarUrl(bruto) : null;
-
-  // Separado do union para que o TypeScript estreite o tipo uma vez só.
-  const urlValida = validacao !== null && validacao.valida ? validacao : null;
-  const urlInvalida = validacao !== null && !validacao.valida ? validacao : null;
-
-  const estadoCampo = bruto.trim().length === 0 ? 'neutro' : urlInvalida === null ? 'valido' : 'invalido';
-
-  const ajuda =
-    urlInvalida !== null
-      ? urlInvalida.mensagem
-      : bruto.trim().length === 0
-        ? 'Nada é enviado. A codificação acontece no seu navegador.'
-        : urlValida?.completou === true
-          ? 'Completamos com https:// — o endereço codificado é o completo.'
-          : 'Conteúdo válido.';
-
   /*
    * Grava o endereço já completado no estado, com folga para quem ainda está
    * digitando. Sem isso o QR codificaria `exemplo.com` enquanto a interface
    * afirma ter completado para `https://exemplo.com`.
+   *
+   * A comparação é com o payload montado, não com a mensagem exibida: o que
+   * precisa entrar no campo é exatamente o que foi codificado.
    */
-  const urlCompletada = urlValida?.completou === true ? urlValida.url : null;
+  const urlDigitada = estado.formularios.url.valor.trim();
+  const urlCompletada =
+    estado.tipoConteudo === 'url' &&
+    derivado.conteudo.payload.length > 0 &&
+    derivado.conteudo.payload !== urlDigitada
+      ? derivado.conteudo.payload
+      : null;
+
   useEffect(() => {
     if (urlCompletada === null) return undefined;
-    const t = setTimeout(() => despachar({ tipo: 'conteudo', valor: urlCompletada }), 800);
+    const t = setTimeout(
+      () => despachar({ tipo: 'formulario', conteudo: 'url', patch: { valor: urlCompletada } }),
+      800,
+    );
     return () => clearTimeout(t);
   }, [urlCompletada]);
 
@@ -145,23 +131,13 @@ export function Gerador() {
     <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
       {/* ---------- Coluna de configuração ---------- */}
       <div className="flex flex-col gap-8">
-        <ControleSegmentado
-          legenda="Tipo de conteúdo"
-          opcoes={TIPOS}
-          valor={tipo}
-          onChange={(v) => setTipo(v)}
-        />
-
-        <Campo
-          rotulo={tipo === 'url' ? 'Endereço a codificar' : 'Texto a codificar'}
-          placeholder={tipo === 'url' ? 'loja.exemplo.com.br/drop-07' : 'Qualquer texto'}
-          value={bruto}
-          estado={estadoCampo}
-          ajuda={ajuda}
-          medida={artefato === null ? undefined : `${fmt.numero(artefato.byteLength)} bytes`}
-          autoComplete="off"
-          spellCheck={false}
-          onChange={(e) => despachar({ tipo: 'conteudo', valor: e.target.value })}
+        <PainelConteudo
+          tipo={estado.tipoConteudo}
+          formularios={estado.formularios}
+          despachar={despachar}
+          problema={derivado.conteudo.problema}
+          observacao={derivado.conteudo.observacao}
+          bytes={artefato === null ? null : artefato.byteLength}
         />
 
         {erro?.tipo === 'excede-capacidade' ? (
@@ -229,7 +205,7 @@ export function Gerador() {
         />
 
         <Botao tipo="destrutivo" className="w-fit" onClick={() => despachar({ tipo: 'limpar' })}>
-          Limpar campo
+          Limpar conteúdo
         </Botao>
       </div>
 
@@ -246,7 +222,12 @@ export function Gerador() {
         ) : (
           <>
             <Previa cena={cena} descricao={artefato.payload} />
-            <RelatorioVerificacao veredicto={veredicto} margens={margens} verificando={verificando} />
+            <RelatorioVerificacao
+              veredicto={veredicto}
+              margens={margens}
+              verificando={verificando}
+              brCode={derivado.brCode}
+            />
             <FichaTecnica artefato={artefato} margens={margens} />
             <PainelExportacao
               cena={cena}

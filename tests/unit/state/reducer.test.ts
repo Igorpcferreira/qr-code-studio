@@ -3,16 +3,41 @@ import { derivar } from '@/state/derivar';
 import type { EstadoGerador } from '@/state/reducer';
 import { ESTADO_INICIAL, ladoMm, reducer } from '@/state/reducer';
 
-const COM_LOGO: EstadoGerador = {
-  ...ESTADO_INICIAL,
-  conteudo: 'https://arquivo.gov.br/registro/8841',
+/** Estado com uma URL digitada, que é o caminho mais usado da interface. */
+function comUrl(valor: string, resto: Partial<EstadoGerador> = {}): EstadoGerador {
+  return {
+    ...ESTADO_INICIAL,
+    ...resto,
+    formularios: { ...ESTADO_INICIAL.formularios, url: { valor } },
+  };
+}
+
+const COM_LOGO: EstadoGerador = comUrl('https://arquivo.gov.br/registro/8841', {
   logo: { dataUrl: 'data:image/png;base64,x', nome: 'marca.png', fracaoLado: 0.4 },
-};
+});
 
 describe('reducer', () => {
-  it('guarda o conteúdo como foi digitado', () => {
-    const e = reducer(ESTADO_INICIAL, { tipo: 'conteudo', valor: '  espaços  ' });
-    expect(e.conteudo).toBe('  espaços  ');
+  it('escreve no formulário do tipo indicado, sem tocar nos outros', () => {
+    const e = reducer(ESTADO_INICIAL, { tipo: 'formulario', conteudo: 'url', patch: { valor: 'a.com' } });
+
+    expect(e.formularios.url.valor).toBe('a.com');
+    expect(e.formularios.texto).toBe(ESTADO_INICIAL.formularios.texto);
+  });
+
+  /**
+   * Espiar outro tipo não pode apagar o que já foi digitado: um vCard leva
+   * doze campos, e perdê-lo por clicar em "Pix" seria atrito gratuito.
+   */
+  it('trocar de tipo preserva todos os formulários', () => {
+    const comWifi = reducer(ESTADO_INICIAL, {
+      tipo: 'formulario',
+      conteudo: 'wifi',
+      patch: { ssid: 'Estudio' },
+    });
+    const emPix = reducer(comWifi, { tipo: 'tipo-conteudo', valor: 'pix' });
+
+    expect(emPix.tipoConteudo).toBe('pix');
+    expect(emPix.formularios.wifi.ssid).toBe('Estudio');
   });
 
   /**
@@ -87,7 +112,7 @@ describe('reducer', () => {
     const configurado: EstadoGerador = { ...COM_LOGO, lado: 50, unidade: 'mm', dpi: 600, nivel: 'H' };
     const limpo = reducer(configurado, { tipo: 'limpar' });
 
-    expect(limpo.conteudo).toBe('');
+    expect(limpo.formularios.url.valor).toBe('');
     expect(limpo.logo).toBeNull();
     expect(limpo.lado).toBe(50);
     expect(limpo.unidade).toBe('mm');
@@ -104,19 +129,39 @@ describe('derivar', () => {
   });
 
   it('monta a cena no lado em milímetros', () => {
-    const d = derivar({ ...ESTADO_INICIAL, conteudo: 'https://exemplo.com', lado: 50, unidade: 'mm' });
+    const d = derivar(comUrl('https://exemplo.com', { lado: 50, unidade: 'mm' }));
     expect(d.cena?.width).toBe(50);
     expect(d.cena?.height).toBe(50);
     expect(d.ladoMm).toBe(50);
   });
 
-  it('aplica as cores escolhidas ao nó do código', () => {
-    const d = derivar({
+  /**
+   * O payload sai do formulário do tipo corrente — nenhum outro consumidor da
+   * cadeia derivada sabe que existem nove tipos.
+   */
+  it('codifica o formulário do tipo escolhido', () => {
+    const estado: EstadoGerador = {
       ...ESTADO_INICIAL,
-      conteudo: 'https://exemplo.com',
-      corEscura: '#141c99',
-      corClara: '#f3f4f7',
-    });
+      tipoConteudo: 'wifi',
+      formularios: {
+        ...ESTADO_INICIAL.formularios,
+        url: { valor: 'https://ignorado.example' },
+        wifi: { ssid: 'Estudio', senha: 'segredo', seguranca: 'WPA', oculta: false },
+      },
+    };
+
+    expect(derivar(estado).artefato?.payload).toBe('WIFI:T:WPA;S:Estudio;P:segredo;;');
+  });
+
+  it('reporta o problema do formulário sem produzir artefato', () => {
+    const d = derivar({ ...ESTADO_INICIAL, tipoConteudo: 'pix' });
+
+    expect(d.conteudo.problema).toMatch(/chave Pix/);
+    expect(d.artefato).toBeNull();
+  });
+
+  it('aplica as cores escolhidas ao nó do código', () => {
+    const d = derivar(comUrl('https://exemplo.com', { corEscura: '#141c99', corClara: '#f3f4f7' }));
     const no = d.cena?.nodes.find((n) => n.kind === 'qr');
     expect(no?.kind === 'qr' ? no.dark.rgb : null).toBe('#141c99');
     expect(no?.kind === 'qr' ? no.light.rgb : null).toBe('#f3f4f7');
