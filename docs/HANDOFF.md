@@ -1,7 +1,7 @@
 # Handoff — continuação da refatoração
 
 > Documento vivo. Atualizado ao fim de cada incremento.
-> **Última atualização:** incremento 6 concluído.
+> **Última atualização:** incremento 7 concluído.
 >
 > Se você é uma nova sessão retomando este trabalho: leia este arquivo inteiro, depois
 > [PLANO.md](PLANO.md). O brand board em `docs/brand/` é autoritativo para qualquer decisão visual.
@@ -14,11 +14,11 @@
 | --------------------------- | ----------------------------------------- |
 | Branch                      | `refactor/fase-1` (publicada em `origin`) |
 | Tag do estado anterior      | `v1.0.0` → commit `9f06e6b`               |
-| Último incremento concluído | **6 — as 14 molduras**                    |
-| Próximo                     | **7 — exportação em PDF**                 |
+| Último incremento concluído | **7 — exportação em PDF**                 |
+| Próximo                     | **8 — rotas, PWA e acabamento**           |
 | `npm run check`             | passando                                  |
-| Testes unitários            | 232 passando                              |
-| `npm run test:e2e`          | 13 testes passando                        |
+| Testes unitários            | 247 passando                              |
+| `npm run test:e2e`          | 15 testes passando                        |
 
 Deploy previsto na Vercel. Sem domínio próprio ainda — `src/lib/site.ts` resolve a URL a
 partir de `NEXT_PUBLIC_SITE_URL`, depois `VERCEL_PROJECT_PRODUCTION_URL`, depois localhost.
@@ -145,6 +145,13 @@ declarava inglês. Os 100 testes passavam, porque nenhum conferia o `text-anchor
 só `tsc` pegou. Lição prática: **teste comportamento, não só ausência de exceção**, e nunca
 trate `npm run test` verde como sinal de que os tipos batem. `npm run check` roda o typecheck
 primeiro justamente por isso.
+
+### Editar arquivo com script Python no Windows quebra o `format:check`
+
+`open(p, 'w')` em modo texto no Windows escreve CRLF, e o Prettier está em `endOfLine: lf`.
+O `.gitattributes` normaliza no commit, então o conteúdo versionado sai certo — mas o
+`npm run check` reprova na árvore de trabalho e o erro parece vir do lugar errado. Use
+`open(p, 'w', encoding='utf-8', newline='')` ou rode `prettier --write` no arquivo depois.
 
 ### `npm audit` reporta 9 high, 3 em produção
 
@@ -326,13 +333,35 @@ O cartão de visita também descartava o logo silenciosamente — corrigido.
 rasterizada e decodificada de volta, com cor Carbon e Ultramarine. O critério de aceite "as
 molduras renderizam corretamente" virou asserção.
 
-### Incremento 7 — PDF ← PRÓXIMO
+### ~~Incremento 7 — PDF~~ CONCLUÍDO
 
-`pdf-lib` + `@pdf-lib/fontkit` em chunk `import()` disparado no clique. Fontes pré-subsetadas
-em build. Papéis A4/Carta/Etiqueta 50, marcas de corte, sangria 3 mm, ficha no rodapé,
-**preto 100% K via `cmyk()`**, N-up.
+`core/render/pdf.ts` + `pdf-fontes.ts` (gerado por `scripts/subset-fontes.py`).
 
-### Incremento 8 — Rotas, PWA e acabamento
+**Fontes embutidas, não servidas de `/public`.** Um `fetch`, mesmo da própria origem, abriria
+um caminho de rede num produto cuja tese é que nada sai do navegador. O E2E confirma: exportar
+PDF não dispara requisição alguma. Custo: 441 KB de TTF viraram **66 KB** — o Archivo é
+variável e precisa ser instanciado em wght=800/wdth=125 antes de subsetar, porque o Google
+Fonts não publica mais o estático.
+
+**Divisão de bundle medida:** first-load **206 KB gzip**; o chunk de PDF (pdf-lib + fontkit +
+fontes) tem **532 KB gzip** e fica de fora, carregado só no clique.
+
+**O código sai como retângulos, não como `<path>`.** Um path único teria um objeto só, mas a
+geometria do PDF viraria caixa-preta. Com retângulos o fluxo de conteúdo é lido de volta e a
+matriz reconstruída — é assim que `pdf.test.ts` prova que o PDF desenha o código certo **sem
+rasterizador de PDF**. Detalhe descoberto na marra: `drawRectangle` do pdf-lib não emite o
+operador `re`; emite `m`/`l`/`h`/`f` com a posição numa matriz `cm`.
+
+**Bug de tamanho físico corrigido.** O renderizador encolhia a peça para abrir espaço ao selo:
+um pedido de 40 mm virava 34 mm em silêncio. Agora a página cresce e a escala é 1; em papel
+fixo a peça reduz para caber, mas nunca amplia. Há teste dedicado, porque num produto para
+impressão essa é a propriedade que mais importa.
+
+**Fora de escopo, anotado:** o logo não entra no PDF. Embutir imagem exigiria decodificar
+PNG/JPEG/SVG dentro do chunk, e um logo rasterizado num arquivo vendido como vetorial seria
+contraditório. SVG e PNG seguem levando o logo.
+
+### Incremento 8 — Rotas, PWA e acabamento ← PRÓXIMO
 
 `/`, `/qr-code-url`, `/qr-code-texto`, `/qr-estatico-vs-dinamico`. Sitemap, robots, OG.
 Service worker escrito à mão (~60 linhas, sem `next-pwa`). Acessibilidade completa,
