@@ -255,7 +255,13 @@ A cor dos módulos é independente do tema da UI. Além disso, um **aviso de pol
 
 `lib/contrast.ts`: luminância relativa WCAG, razão `(L1+0.05)/(L2+0.05)`. Limiar de aviso em 4:1 conforme o board.
 
-Mas a interface vai dizer a verdade que medi: scanners usam diferença de refletância (ISO/IEC 15415), não a razão WCAG. `#6E7280` sobre branco dá ≈3,5:1 — **reprovado pelo limiar e mesmo assim decodificou sem erro** nos meus testes; 1,9:1 falhou. Então o texto do aviso é _"abaixo de 4:1 o código pode falhar em scanners"_ (que é o que o board escreveu, e é honesto), e **quem dá o veredito final é a verificação real**, não o número.
+Scanners usam diferença de refletância (ISO/IEC 15415), não a razão WCAG — então o número é um proxy, e a interface diz isso.
+
+**Correção ao que afirmei na Etapa 1.** Eu havia estimado o par `#6E7280` sobre branco em ≈3,5:1 e concluído que ele "reprovava no limiar e mesmo assim decodificava". Calculado de verdade, esse par dá **4,79:1** e portanto **passa** no limiar; o par que falhou (`#B4B4B4`) dá **2,07:1**, não 1,9:1. Os dois pontos que medi são **coerentes com o limiar de 4:1**, e não evidência de que ele seja conservador demais. Os valores agora estão ancorados em teste (`tests/unit/lib/contrast.test.ts`).
+
+O texto do aviso continua o do board — _"abaixo de 4:1 o código pode falhar em scanners"_ — e **quem dá o veredito final é a verificação real**, porque contraste não é a única causa de falha: logo, moldura e densidade de módulo derrubam a leitura sem alterar a razão.
+
+**Segunda imprecisão do board.** Ele anuncia `18,4 : 1` para Carbon sobre branco; pela fórmula WCAG 2.x o valor é **19,14**. O desenho do componente é mantido, o número passa a ser calculado.
 
 ### 5.2 Logo central
 
