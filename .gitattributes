@@ -1,0 +1,9 @@
+# Desenvolvimento no Windows, CI no Linux: normaliza tudo para LF no repositorio
+# e evita que o Prettier (endOfLine: lf) brigue com o checkout.
+* text=auto eol=lf
+
+*.png binary
+*.ico binary
+*.ttf binary
+*.woff2 binary
+*.pdf binary

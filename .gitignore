@@ -1,4 +1,16 @@
 node_modules
+.next
+/out
 /dist
 .vite
+coverage
+playwright-report
+test-results
+*.tsbuildinfo
+next-env.d.ts
+.env*.local
+.vercel
 .DS_Store
+
+# Fontes de origem do subset de PDF: regeneraveis, ver scripts/subset-fontes.py
+scripts/fontes/
