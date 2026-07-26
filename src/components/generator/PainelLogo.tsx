@@ -60,6 +60,9 @@ export function PainelLogo({ logo, nivel, veredicto, onLogo, onTamanho }: Painel
         id={idArquivo}
         type="file"
         accept="image/png,image/jpeg,image/svg+xml,image/webp"
+        // Escondido e acionado pelo botão, mas continua sendo o elemento de
+        // formulário: sem nome acessível ele fica mudo para leitor de tela.
+        aria-label="Arquivo de imagem do logo"
         className="sr-only"
         disabled={bloqueado}
         onChange={(e) => void aoEscolher(e.target.files?.[0])}

@@ -75,7 +75,13 @@ export function ControleSegmentado<T extends string>({
               type="button"
               role="radio"
               aria-checked={ativo}
-              aria-label={opcao.descricao}
+              /*
+               * O rótulo visível vem primeiro no nome acessível. A WCAG 2.5.3
+               * exige que o nome contenha o texto que está na tela: substituir
+               * "URL" por "Endereço de site" faria comando de voz e leitor de
+               * tela discordarem do que o usuário vê.
+               */
+              aria-label={opcao.descricao === undefined ? undefined : `${opcao.rotulo}, ${opcao.descricao}`}
               // Só a opção ativa entra na ordem de tabulação; as setas fazem o resto.
               tabIndex={ativo ? 0 : -1}
               onClick={() => onChange(opcao.valor)}

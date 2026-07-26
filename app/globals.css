@@ -56,6 +56,7 @@
   --color-fg-muted: var(--fg-muted);
   --color-hairline: var(--hairline);
   --color-accent-text: var(--accent-text);
+  --color-accent-link: var(--accent-link);
 }
 
 /* A variante `dark:` do Tailwind so olha para prefers-color-scheme por padrao,
@@ -82,12 +83,34 @@
   --surface-card: light-dark(#ffffff, #1c1e26);
   --surface-inverse: light-dark(#0e0f14, #ffffff);
   --fg: light-dark(#0e0f14, #ffffff);
-  --fg-muted: #6e7280; /* Steel funciona nos dois modos, conforme o board */
+  /*
+   * Steel puro (#6E7280) NAO passa em AA como texto secundario: da 4,36:1 sobre
+   * Quiet e 3,99:1 sobre Carbon, contra o minimo de 4,5:1. O board afirma que
+   * ele serve nos dois modos, mas a conta diz o contrario — e o Lighthouse
+   * confirmou. Aqui ele e ajustado por tema, mantendo o mesmo matiz:
+   * #696D7A da 4,69:1 sobre Quiet, e #888C99 da 5,70:1 sobre Carbon.
+   *
+   * O Steel original continua valendo em swatch, filete e texto grande, onde o
+   * limiar e outro.
+   */
+  --fg-muted: light-dark(#696d7a, #888c99);
   --hairline: light-dark(#e1e3e9, #1c1e26);
 
   /* Texto sobre fundo claro quando o acento e o assunto (selo de permanencia):
      Ultramarine Deep no claro, branco no escuro — como o board desenha. */
   --accent-text: light-dark(#141c99, #ffffff);
+
+  /*
+   * Acento como texto de link.
+   *
+   * Ultramarine puro da 7,26:1 sobre branco — o board acerta ao dizer que serve
+   * em texto pequeno — mas so 2,64:1 sobre Carbon. No modo escuro ele e clareado
+   * para #767CF5, que da 5,44:1 sobre Carbon e 4,73:1 sobre Graphite.
+   *
+   * Nao e uma segunda cor de acento: e o mesmo matiz ajustado para continuar
+   * legivel, do mesmo jeito que Ultramarine Deep ja existe para o hover.
+   */
+  --accent-link: light-dark(#2c36f0, #767cf5);
 
   /* ---- Cores do proprio QR ------------------------------------------------ *
    * REGRA DO BOARD, secao "Tela principal":

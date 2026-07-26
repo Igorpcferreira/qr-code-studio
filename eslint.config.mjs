@@ -56,6 +56,24 @@ const config = [
       'no-restricted-globals': 'off',
     },
   },
+
+  {
+    /**
+     * O service worker e a unica excecao legitima a proibicao de `fetch`.
+     *
+     * A regra existe para impedir que codigo do app abra caminho de rede sem
+     * discussao. Aqui o `fetch` faz o oposto: intercepta requisicoes que o
+     * navegador ja ia fazer e as responde do cache, que e o que permite o
+     * gerador funcionar offline.
+     */
+    files: ['public/sw.js'],
+    languageOptions: {
+      globals: { self: 'readonly', caches: 'readonly', fetch: 'readonly' },
+    },
+    rules: {
+      'no-restricted-globals': 'off',
+    },
+  },
 ];
 
 export default config;
