@@ -1,7 +1,7 @@
 # Handoff — continuação da refatoração
 
 > Documento vivo. Atualizado ao fim de cada incremento.
-> **Última atualização:** incremento 2 concluído.
+> **Última atualização:** incremento 3 concluído.
 >
 > Se você é uma nova sessão retomando este trabalho: leia este arquivo inteiro, depois
 > [PLANO.md](PLANO.md). O brand board em `docs/brand/` é autoritativo para qualquer decisão visual.
@@ -14,10 +14,10 @@
 | --------------------------- | ----------------------------------------- |
 | Branch                      | `refactor/fase-1` (publicada em `origin`) |
 | Tag do estado anterior      | `v1.0.0` → commit `9f06e6b`               |
-| Último incremento concluído | **2 — display list e renderers SVG/PNG**  |
-| Próximo                     | **3 — `/core/verify`**                    |
+| Último incremento concluído | **3 — verificação de leitura**            |
+| Próximo                     | **4 — design system**                     |
 | `npm run check`             | passando                                  |
-| Testes unitários            | 102 passando                              |
+| Testes unitários            | 142 passando                              |
 | `npm run test:e2e`          | 3 testes passando                         |
 
 Deploy previsto na Vercel. Sem domínio próprio ainda — `src/lib/site.ts` resolve a URL a
@@ -29,8 +29,11 @@ partir de `NEXT_PUBLIC_SITE_URL`, depois `VERCEL_PROJECT_PRODUCTION_URL`, depois
 
 Estas vêm do brief e do brand board. Violá-las é quebrar o produto, não apenas o estilo.
 
-1. **Nunca commitar sem autorização explícita do Igor.** Ao fim de cada incremento: mostrar
-   `git status`, `git diff --stat`, rodar `npm run check`, sugerir a mensagem e **parar**.
+1. **Autorização de commit concedida em 26/07/2026.** O brief original exigia validação a cada
+   incremento; o Igor dispensou depois do incremento 3 ("não precisa mais da minha validação,
+   pode continuar"). Continua valendo: `npm run check` verde **antes** de cada commit, um
+   commit por incremento, mensagens convencionais. Decisões que mudem escopo ou contrariem o
+   brief ainda devem ser levantadas — a dispensa é de validação de rotina, não de julgamento.
 2. **Só QR estático.** Nada de redirecionamento, encurtador, rastreamento de scan ou qualquer
    dependência de servidor. Isso destruiria a tese da marca.
 3. **Nada sai do navegador.** Sem analytics, sem CDN, sem rota de API. Já existe teste E2E que
@@ -207,13 +210,50 @@ apenas referenciada. Uma gráfica sem Archivo instalado substitui a fonte. Conve
 contornos exige um motor de fonte — o `@pdf-lib/fontkit` já estará carregado no caminho de PDF
 e pode servir aqui. Decidir quando as molduras existirem.
 
-### Incremento 3 — `/core/verify` ← PRÓXIMO
+### ~~Incremento 3 — `/core/verify`~~ CONCLUÍDO
 
-`jsqr` fixado sem `^`, dentro de Web Worker com `OffscreenCanvas`, com debounce.
-Ida e volta nos 4 níveis, com e sem logo. Teste de dano simulado (oclusão, ruído, borrão,
-rotação) reportando margem de segurança.
+Entregue: `decode.ts` (jsQR atrás da interface `Decodificador`), `verify.ts`, `damage.ts`,
+`logo.ts`, `protocol.ts`, `worker.ts` e `client.ts`.
 
-### Incremento 4 — Design system
+**O diagnóstico vai além do brief.** Em vez de apontar uma "causa provável" por heurística,
+quando a leitura falha rodamos **experimentos controlados**: remove o logo e tenta de novo;
+devolve as cores ao padrão e tenta de novo; aumenta a escala e tenta de novo. O primeiro que
+faz o código voltar a ler não é palpite — é a causa isolada por eliminação, e o veredito traz
+`confirmada: true`. Polaridade invertida é diagnosticada antes de tudo, porque inverter as
+duas cores mantém a razão de contraste intacta e nenhum experimento a distinguiria.
+
+**API que a UI vai consumir:**
+
+```ts
+verificarLeitura(cena, { imagens }): Veredicto      // { ok, conteudoLido, causa, escala }
+avaliarLogo(artefato, ladoCodigoMm, ladoLogoMm)     // { permitido } | { motivo, sugestao }
+criarClienteVerificacao({ debounceMs })             // Worker + debounce + último-vence
+medirMargemDeDano(bitmap, esperado, decodificador)  // margem por eixo
+```
+
+**Decisões e achados:**
+
+- **Área do logo é relativa à matriz, não ao artefato com quiet zone.** A quiet zone
+  acrescenta 8 módulos sem dado; medi-la junto liberaria um logo maior que o testado. Um teste
+  pegou isso.
+- **Escala fracionária quebra a decodificação.** Um v40 lê a 1 px/módulo e **falha a
+  1,5 px/módulo** — a fração distorce a borda dos módulos. Por isso o experimento de densidade
+  usa escala fixa de 12 px/módulo em vez de multiplicar a atual, e por isso
+  `ajustarParaModuloInteiro` importa no PNG.
+- **`rotacao` saiu do relatório padrão.** Satura em 45° nos quatro níveis — os três padrões de
+  localização tornam o QR invariante a rotação. Número igual para toda configuração não
+  informa nada. O eixo continua disponível sob demanda. Padrão: `oclusao`, `ruido`, `borrao`.
+- **Margens medidas** (URL de exemplo, 8 px/módulo): oclusão L=0%, M=5%, Q=5%, **H=10%**.
+  Relatório completo custa ~200 ms.
+- **`serialize.ts` existe porque `postMessage` descarta funções**, e `QrArtifact` carrega
+  `isDark`. A `Scene` inteira viaja ao worker; só o artefato é desidratado e reidratado. Assim
+  o worker verificará também as molduras do incremento 6 sem saber como foram compostas.
+
+**Ainda em aberto:** o circuito entre `rasterizarCena` (puro) e `desenharCena` (Canvas2D) não
+foi fechado — falta um teste que decodifique as duas saídas e confirme que concordam. Precisa
+de ambiente com canvas, então cabe melhor no E2E do incremento 5.
+
+### Incremento 4 — Design system ← PRÓXIMO
 
 `Logo.tsx` com geometria 7:5:3 e **troca automática para o ícone cheio abaixo de 16px**.
 Os 8 ícones do board. Componentes `/ui` nos 4 tipos × 3 estados, claro e escuro.
