@@ -10,17 +10,17 @@
 
 ## 1. Onde estamos
 
-|                             |                                                |
-| --------------------------- | ---------------------------------------------- |
-| Branch                      | `refactor/fase-1` (publicada em `origin`)      |
-| Tag do estado anterior      | `v1.0.0` → commit `9f06e6b`                    |
-| Último incremento concluído | **13 — acabamento das fases 2 e 3**            |
-| Próximo                     | **nada prometido** — ver ROADMAP.md            |
-| `npm run check`             | passando                                       |
-| Testes unitários            | 363 passando                                   |
-| `npm run test:e2e`          | 76 passando (38 cenários × 2 dispositivos)     |
-| Lighthouse                  | 99 / 100 / 100 / 100 (com compressão — ver §7) |
-| First-load                  | 220 KB gzip                                    |
+|                             |                                                   |
+| --------------------------- | ------------------------------------------------- |
+| Branch                      | `refactor/fase-1` (publicada em `origin`)         |
+| Tag do estado anterior      | `v1.0.0` → commit `9f06e6b`                       |
+| Último incremento concluído | **13 — acabamento das fases 2 e 3**               |
+| Próximo                     | **nada prometido** — ver ROADMAP.md               |
+| `npm run check`             | passando                                          |
+| Testes unitários            | 369 passando                                      |
+| `npm run test:e2e`          | 86 passando (43 cenários × 2 dispositivos)        |
+| Lighthouse                  | 91–94 / 100 / 100 / 100 (com compressão — ver §7) |
+| First-load                  | 220 KB gzip                                       |
 
 Deploy previsto na Vercel. Sem domínio próprio ainda — `src/lib/site.ts` resolve a URL a
 partir de `NEXT_PUBLIC_SITE_URL`, depois `VERCEL_PROJECT_PRODUCTION_URL`, depois localhost.
@@ -50,7 +50,8 @@ Estas vêm do brief e do brand board. Violá-las é quebrar o produto, não apen
 5. **Zona de silêncio = 4 módulos, sempre.** É tipo literal em `QrArtifact`, sem parâmetro.
 6. **Um acento só** (Ultramarine `#2C36F0`). Nenhuma cor secundária decorativa.
 7. **No modo escuro, só a interface inverte.** O QR continua escuro sobre claro. As variáveis
-   `--qr-dark` / `--qr-light` estão deliberadamente fora do `light-dark()`.
+   `--qr-dark` / `--qr-light` estão deliberadamente fora do `light-dark()`, e o seletor de tema só
+   troca o `color-scheme`. Há teste E2E conferindo que a cor dos módulos não muda com o tema.
 8. **Selo de permanência:** o texto vive em `SELO_PERMANENCIA` (`src/lib/site.ts`) e **nunca é
    reescrito**. Há teste unitário travando o literal.
 9. **A chamada de ação é impressa, nunca codificada.** Máx. 24 caracteres, sempre caixa alta.
@@ -209,6 +210,36 @@ O ESLint do React 19 reprova `setState` no corpo de um efeito. No histórico iss
 `localStorage` na montagem; a saída certa não é silenciar a regra, é ler dentro do callback
 assíncrono que já abre o IndexedDB — que também evita divergência entre a marcação pré-renderizada
 e a do cliente.
+
+### O codificador não usa um modo só, e a ficha técnica quase mentiu por isso
+
+A biblioteca quebra o conteúdo em segmentos e escolhe Numérico, Alfanumérico ou Byte para cada um,
+conforme o que for mais denso. Um Pix de **132 caracteres cabe numa versão cuja capacidade em modo
+Byte é 98**, porque a maior parte dele são dígitos, e dígito custa 3,33 bits em vez de 8.
+
+A ficha comparava `byteLength` com `capacityBytes` e exibia **"132 / 98 bytes"** — a mesma armadilha
+que o projeto corrige no brand board, reproduzida por dentro. Só apareceu quando o Pix tornou
+alcançável um payload de modo misto; com URL e texto, que são quase tudo modo Byte, a comparação
+funcionava por acidente.
+
+Hoje a linha compara **bits ocupados contra bits disponíveis**, com `CODEWORDS_DE_DADOS` (tabela
+nova, mesmo cross-check das 160 células) e `usedBits` somando, por segmento, os 4 bits do indicador
+de modo mais o indicador de contagem de caracteres. Duas guardas em teste: nunca passa da capacidade
+da versão, e nunca caberia na versão anterior — a segunda é o que pega uma tabela de indicadores
+subestimada.
+
+`capacityBytes` continua existindo e continua sendo o teto em modo Byte. **Não use para medir
+ocupação.**
+
+### A margem de dano media a peça, não o código
+
+`verificarLeitura` recorta para a região do código desde o incremento 6, mas `medirMargemDeDano`
+continuava rasterizando a peça inteira. Com moldura, o quadrado de oclusão ficava centrado no papel
+em vez do código, e a mesma matriz reportava 5% em vez de 10% só por ter um rótulo embaixo.
+
+Corrigido expondo `recortarParaLeitura` e usando o mesmo recorte nos dois. Há teste comparando a
+margem com e sem moldura. Se algum dia a medição divergir da tabela do §3 ("H = 10% para a URL de
+exemplo"), é o primeiro lugar a olhar.
 
 ### `npm audit` reporta 9 high, 3 em produção
 
@@ -488,6 +519,29 @@ quem já sabia que existe. Cache do service worker versionado para `qrcs-v2`.
 contra um servidor que não comprime produz um número que não descreve produção nem desenvolvimento.
 Ver §7.
 
+### ~~Incremento 14 — seletor de tema, README ilustrado e duas correções~~ CONCLUÍDO
+
+O CSS já resolvia claro e escuro por `light-dark()`, e `[data-theme]` já estava previsto em
+`globals.css` — **faltava quem trocasse**. O site seguia o sistema operacional e quem quisesse o
+contrário não tinha como pedir. Agora há seletor de três estados (claro, escuro, sistema) no
+cabeçalho, com script inline aplicando antes da primeira pintura.
+
+`useSyncExternalStore` e não `useState` + efeito: o tema já está no DOM antes da hidratação, então o
+componente lê de fora do React em vez de montar um segundo estado — o que também evita o `setState`
+dentro de efeito que o ESLint reprova.
+
+Cabeçalho e rodapé viraram componentes compartilhados. A página-tese copiava a marca à mão e ficou
+sem rodapé nenhum; qualquer acréscimo nasceria numa rota só.
+
+**Duas correções que as capturas do README revelaram** — as duas descritas em §3:
+
+1. A ficha exibia `132 / 98 bytes` para um Pix. Publicar uma imagem com um número impossível, num
+   README que critica o board por exatamente isso, teria sido autodestrutivo.
+2. A margem de dano media a peça, não o código: com moldura, a mesma matriz reportava 5% em vez
+   de 10%.
+
+As telas são geradas por `scripts/capturar-telas.mjs`, não tiradas à mão — ver §5.
+
 **Fases 1, 2 e 3 encerradas.** O que segue está em [ROADMAP.md](ROADMAP.md), com as dívidas
 conhecidas registradas e justificadas.
 
@@ -498,8 +552,19 @@ npm run dev          # desenvolvimento
 npm run check        # typecheck + lint + format + testes + build  ← o portão
 npm run test:watch   # unitários em watch
 npm run test:e2e     # E2E contra o export estático (roda build antes)
-npm run preview      # serve out/ na 4173
+npm run preview      # serve out/ na 4173, com compressão
 ```
+
+As telas do README são geradas, não tiradas à mão:
+
+```bash
+npm run build && npm run preview
+node scripts/capturar-telas.mjs      # regrava docs/imagens/*.png
+```
+
+O script preenche a interface e só captura depois que a verificação de leitura conclui — assim a
+imagem do README mostra o produto no estado que o diferencia, e não uma tela vazia. Rode-o sempre
+que a interface mudar; uma captura desatualizada é documentação errada.
 
 `npm run check` precisa passar limpo antes de qualquer commit.
 
@@ -527,12 +592,18 @@ npx lighthouse@12 http://localhost:4173/ --chrome-flags="--headless=new" \
   --only-categories=performance,accessibility,best-practices,seo
 ```
 
-Medido assim: **99 / 100 / 100 / 100**.
+Medido assim: **91–94 / 100 / 100 / 100**.
 
-Antes de o servidor de prévia comprimir, o mesmo build media **78** em desempenho — e o commit
-anterior a esta fase também, verificado por checkout. Ou seja: aquele 78 era do servidor, não do
-código. O `98` anotado no fim da Fase 1 foi medido em condições que não constam do repositório e
-não é reproduzível; use o procedimento acima e registre o resultado.
+Duas coisas que só aparecem quando se mede mais de uma vez:
+
+1. **Compressão muda tudo.** Antes de o servidor de prévia comprimir, o mesmo build media **78** em
+   desempenho — e o commit anterior a esta fase também, verificado por checkout. Aquele 78 era do
+   servidor, não do código. O `98` anotado no fim da Fase 1 foi medido em condições que não constam
+   do repositório e não é reproduzível.
+2. **Uma execução só não vale.** Cinco execuções seguidas nesta máquina deram 91, 92, 92, 92 e 94, e
+   uma execução isolada anterior deu 99. Acessibilidade, boas práticas e SEO são estáveis em 100;
+   desempenho oscila. Registre a faixa, não o melhor número — anotar o 99 seria escolher a execução
+   mais simpática.
 
 Se o número de acessibilidade cair, olhe primeiro por `label`: os dois controles escondidos do
 projeto (o seletor de arquivo do lote e a caixa de marcação) dependem de rótulo explícito.

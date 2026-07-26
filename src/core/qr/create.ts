@@ -1,5 +1,6 @@
 import { create as criarQrCru } from 'qrcode';
-import { capacidadeBytes, melhorNivelPara } from './capacity';
+import type { QrSegment } from 'qrcode';
+import { capacidadeBytes, codewordsDeDados, melhorNivelPara } from './capacity';
 import type { ErrorCorrection, QrArtifact } from './types';
 import { QUIET_ZONE } from './types';
 
@@ -31,6 +32,46 @@ export type ResultadoCriacao =
   { readonly ok: true; readonly artefato: QrArtifact } | { readonly ok: false; readonly erro: ErroCriacao };
 
 const codificador = new TextEncoder();
+
+/**
+ * Bits do indicador de contagem de caracteres, por modo e faixa de versao.
+ * Tabela 3 do ISO/IEC 18004.
+ */
+const CONTAGEM_DE_CARACTERES: Readonly<Record<string, readonly [number, number, number]>> = {
+  Numeric: [10, 12, 14],
+  Alphanumeric: [9, 11, 13],
+  Byte: [8, 16, 16],
+  Kanji: [8, 10, 12],
+};
+
+function faixaDaVersao(versao: number): 0 | 1 | 2 {
+  if (versao <= 9) return 0;
+  return versao <= 26 ? 1 : 2;
+}
+
+/**
+ * Quantos bits o conteudo ocupa de fato.
+ *
+ * `getBitsLength()` de cada segmento conta so os dados; o indicador de modo
+ * (4 bits) e o de contagem de caracteres entram por fora, e e a soma dos tres
+ * que se compara com a capacidade da versao.
+ *
+ * Isto existe porque o codificador **nao usa um modo so**: ele quebra o texto e
+ * escolhe o mais denso para cada trecho. Sem contar assim, um Pix de 132
+ * caracteres apareceria como "132 / 98 bytes" na ficha — impossivel de ler e
+ * falso. Ha teste de propriedade garantindo que o resultado nunca passa da
+ * capacidade e nunca caberia na versao anterior.
+ */
+function bitsOcupados(segmentos: readonly QrSegment[], versao: number): number {
+  const faixa = faixaDaVersao(versao);
+
+  return segmentos.reduce((total, segmento) => {
+    const contagem = CONTAGEM_DE_CARACTERES[segmento.mode.id]?.[faixa];
+    /* istanbul ignore next -- a biblioteca so emite os quatro modos da tabela */
+    if (contagem === undefined) return total;
+    return total + 4 + contagem + segmento.getBitsLength();
+  }, 0);
+}
 
 /**
  * Converte conteudo em `QrArtifact`, normalizando as armadilhas de `qrcode`.
@@ -106,6 +147,8 @@ export function criarArtefato(conteudo: string, nivel: ErrorCorrection): Resulta
       payload: conteudo,
       byteLength,
       capacityBytes: capacidadeBytes(cru.version, nivelDevolvido),
+      dataBits: codewordsDeDados(cru.version, nivelDevolvido) * 8,
+      usedBits: bitsOcupados(cru.segments, cru.version),
       isDark(x: number, y: number): boolean {
         if (x < 0 || y < 0 || x >= size || y >= size) return false;
         return data[y * size + x] === 1;

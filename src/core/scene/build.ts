@@ -23,6 +23,8 @@ export function metaDoArtefato(artefato: QrArtifact): SceneMeta {
     modules: artefato.size,
     errorCorrection: artefato.errorCorrection,
     capacityBytes: artefato.capacityBytes,
+    dataBits: artefato.dataBits,
+    usedBits: artefato.usedBits,
     byteLength: artefato.byteLength,
     quietZone: artefato.quietZone,
     payload: artefato.payload,

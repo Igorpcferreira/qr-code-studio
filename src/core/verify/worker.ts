@@ -6,7 +6,7 @@ import { medirMargemDeDano } from './damage';
 import { decodificadorJsQr, escalaParaVerificacao } from './decode';
 import type { PedidoVerificacao, RespostaVerificacao } from './protocol';
 import { reidratarCena } from './protocol';
-import { verificarLeitura } from './verify';
+import { recortarParaLeitura, verificarLeitura } from './verify';
 
 /**
  * Worker de verificacao.
@@ -33,8 +33,15 @@ self.addEventListener('message', (evento: MessageEvent<PedidoVerificacao>) => {
     if (pedido.medirDano === true && veredicto.ok) {
       const codigo = cena.nodes.find((no): no is QrNode => no.kind === 'qr');
       if (codigo !== undefined) {
+        /*
+         * Sobre o recorte, e nao sobre a peca inteira. A margem de dano
+         * descreve a robustez do codigo; medida na peca com moldura, o
+         * quadrado de oclusao ficaria centrado no papel e a mesma matriz
+         * reportaria numeros diferentes so por trocar a moldura.
+         */
+        const recorte = recortarParaLeitura(cena, codigo);
         const escala = escalaParaVerificacao(codigo.side, codigo.artifact.sizeComQuietZone, 8);
-        const bitmap = rasterizarCena(cena, escala, { imagens });
+        const bitmap = rasterizarCena(recorte, escala, { imagens });
         margens = medirMargemDeDano(bitmap, cena.meta.payload, decodificadorJsQr);
       }
     }

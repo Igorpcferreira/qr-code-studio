@@ -84,6 +84,20 @@ test.describe('rotas e acabamento', () => {
     await expect(page.getByRole('link', { name: /Gerar um QR estático/ })).toBeVisible();
   });
 
+  /**
+   * O único link para fora do site, e ele fica no rodapé — nunca no gerador.
+   * `noopener` fecha o acesso ao `window.opener` da aba nova.
+   */
+  test('o rodapé credita a autoria em toda rota', async ({ page }) => {
+    for (const rota of ROTAS) {
+      await page.goto(rota);
+
+      const autoria = page.getByRole('link', { name: 'Igor de Castro' });
+      await expect(autoria, rota).toHaveAttribute('href', 'https://www.linkedin.com/in/igor-cferreira/');
+      await expect(autoria, rota).toHaveAttribute('rel', /noopener/);
+    }
+  });
+
   test('o idioma é português em toda rota', async ({ page }) => {
     for (const rota of ROTAS) {
       await page.goto(rota);

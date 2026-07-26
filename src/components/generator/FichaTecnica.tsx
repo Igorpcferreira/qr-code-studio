@@ -13,6 +13,13 @@ import * as fmt from '@/lib/format';
  * do formato em H é 1.273 bytes e em v6/H são 58. Aqui tudo é calculado a
  * partir da tabela ISO/IEC 18004. Numa ferramenta cuja tese é honestidade
  * técnica, herdar um número impossível seria autodestrutivo.
+ *
+ * A linha de capacidade compara **bits ocupados contra bits disponíveis**, os
+ * dois convertidos para bytes. Comparar o tamanho do texto com a capacidade em
+ * modo Byte seria a mesma armadilha do board com outro rótulo: o codificador
+ * escolhe modos mais densos por segmento, então um Pix de 132 caracteres cabe
+ * numa versão cuja capacidade em modo Byte é 98, e a ficha anunciaria
+ * "132 / 98 bytes".
  */
 
 interface LinhaProps {
@@ -53,7 +60,9 @@ export function FichaTecnica({ artefato, margens }: FichaTecnicaProps) {
         <Linha rotulo="VERSÃO">{artefato.version}</Linha>
         <Linha rotulo="MÓDULOS">{fmt.modulos(artefato.size)}</Linha>
         <Linha rotulo="CORREÇÃO">{fmt.correcao(artefato.errorCorrection)}</Linha>
-        <Linha rotulo="CAPACIDADE">{fmt.bytes(artefato.byteLength, artefato.capacityBytes)}</Linha>
+        <Linha rotulo="CAPACIDADE">
+          {fmt.bytes(Math.ceil(artefato.usedBits / 8), artefato.dataBits / 8)}
+        </Linha>
         <Linha rotulo="ZONA DE SILÊNCIO">{artefato.quietZone} módulos</Linha>
         {oclusao === undefined ? null : (
           <Linha rotulo="MARGEM DE DANO">{Math.round(oclusao.tolerancia * 100)}%</Linha>

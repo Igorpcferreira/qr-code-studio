@@ -5,6 +5,7 @@ import {
   CAPACIDADE_BYTES,
   CAPACIDADE_MAXIMA_BYTES,
   capacidadeBytes,
+  codewordsDeDados,
   melhorNivelPara,
   versaoMinimaPara,
 } from '@/core/qr/capacity';
@@ -39,6 +40,41 @@ describe('tabela de capacidade', () => {
     }
 
     expect(divergencias).toEqual([]);
+  });
+
+  /**
+   * A segunda tabela, com a mesma politica de guarda. `Mode.MIXED` faz a
+   * biblioteca devolver a capacidade total em bits, sem descontar indicador de
+   * modo nem de contagem — que e exatamente o tamanho do contentor.
+   */
+  it('confere as 160 celulas de codewords de dados contra a biblioteca', () => {
+    const divergencias: string[] = [];
+
+    for (const nivel of NIVEIS_CORRECAO) {
+      for (let versao = VERSAO_MINIMA; versao <= VERSAO_MAXIMA; versao++) {
+        const nosso = codewordsDeDados(versao, nivel);
+        const deles = Version.getCapacity(versao, ECLevel[nivel], Mode.MIXED) / 8;
+        if (nosso !== deles) divergencias.push(`v${versao} ${nivel}: nosso ${nosso}, lib ${deles}`);
+      }
+    }
+
+    expect(divergencias).toEqual([]);
+  });
+
+  /**
+   * As duas tabelas medem coisas diferentes, e e essa diferenca que impede a
+   * ficha tecnica de anunciar "132 / 98 bytes": o contentor sempre comporta
+   * mais bytes do que o teto de texto em modo Byte, porque o modo consome
+   * indicadores e porque outros modos sao mais densos.
+   */
+  it('o contentor e sempre maior que a capacidade em modo Byte', () => {
+    for (const nivel of NIVEIS_CORRECAO) {
+      for (let versao = VERSAO_MINIMA; versao <= VERSAO_MAXIMA; versao++) {
+        expect(codewordsDeDados(versao, nivel), `v${versao} ${nivel}`).toBeGreaterThan(
+          capacidadeBytes(versao, nivel),
+        );
+      }
+    }
   });
 
   /**
