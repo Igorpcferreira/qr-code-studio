@@ -1,7 +1,7 @@
 # Handoff — continuação da refatoração
 
 > Documento vivo. Atualizado ao fim de cada incremento.
-> **Última atualização:** incremento 4 concluído.
+> **Última atualização:** incremento 5 concluído.
 >
 > Se você é uma nova sessão retomando este trabalho: leia este arquivo inteiro, depois
 > [PLANO.md](PLANO.md). O brand board em `docs/brand/` é autoritativo para qualquer decisão visual.
@@ -14,11 +14,11 @@
 | --------------------------- | ----------------------------------------- |
 | Branch                      | `refactor/fase-1` (publicada em `origin`) |
 | Tag do estado anterior      | `v1.0.0` → commit `9f06e6b`               |
-| Último incremento concluído | **4 — design system**                     |
-| Próximo                     | **5 — interface do gerador**              |
+| Último incremento concluído | **5 — interface do gerador**              |
+| Próximo                     | **6 — as 14 molduras**                    |
 | `npm run check`             | passando                                  |
-| Testes unitários            | 176 passando                              |
-| `npm run test:e2e`          | 3 testes passando                         |
+| Testes unitários            | 205 passando                              |
+| `npm run test:e2e`          | 10 testes passando                        |
 
 Deploy previsto na Vercel. Sem domínio próprio ainda — `src/lib/site.ts` resolve a URL a
 partir de `NEXT_PUBLIC_SITE_URL`, depois `VERCEL_PROJECT_PRODUCTION_URL`, depois localhost.
@@ -273,13 +273,32 @@ anel de 2 px do board, e duplicar abriria espaço para divergência.
 geometria, contagem de elementos e atributos ARIA — o que importa neste nível. Interação fica
 com o E2E.
 
-### Incremento 5 — Interface do gerador ← PRÓXIMO
+### ~~Incremento 5 — Interface do gerador~~ CONCLUÍDO
 
-Campo, prévia com quiet zone visível, **ficha técnica com números reais**, seletor de
-correção, tamanho/DPI, cor com indicador de contraste, logo, relatório de verificação.
-Estado com `useReducer` + Context. Aqui `src/lib/url.ts` volta a ser usado.
+`state/reducer.ts` + `state/derivar.ts` (cadeia derivada como função pura, testável sem
+React), `components/generator/*`, e o app montado em `app/page.tsx`.
 
-### Incremento 6 — As 14 molduras
+**O circuito fechou.** O E2E prova que o Web Worker sobe no export estático e que a
+verificação roda no navegador de verdade, não só no Node: digitar uma URL leva a "Leitura
+confirmada" com a margem de dano medida. Era o item que ficou em aberto no incremento 3.
+
+**Decisões:**
+
+- **Contexto dispensado.** `useReducer` local no `Gerador` bastou; não há consumidor fora da
+  subárvore. Um Context existiria só para satisfazer o plano.
+- **A prévia mostra o SVG exportado**, mesma função de renderização — não um desenho de tela
+  que poderia divergir do arquivo. `dangerouslySetInnerHTML` é seguro aqui porque a string é
+  nossa e o texto do usuário passa por `escaparXml`.
+- **Exportação bloqueada quando a verificação falha.** Entregar arquivo que não lê é pior que
+  não entregar: o usuário só descobriria depois de mandar imprimir.
+- **Baixar o nível de correção descarta o logo**, em vez de manter um logo que quebraria o
+  código. Perda explícita é melhor que arquivo quebrado silencioso.
+- **Trocar unidade preserva o tamanho físico**; trocar DPI em px reconverte o lado, para o
+  tamanho impresso não mudar sem o usuário pedir.
+- **O identificador da ficha sai do conteúdo, não do relógio** — dois artefatos iguais têm o
+  mesmo código, e nada vaza sobre quando foi gerado.
+
+### Incremento 6 — As 14 molduras ← PRÓXIMO
 
 8 do board + hang tag de roupa, grade N-up, cartão de visita, display de mesa, cartaz,
 faixa horizontal. Todas como funções puras `=> Scene`.
