@@ -198,13 +198,19 @@ function desenharBitmap(alvo: Bitmap, fonte: Bitmap, x: number, y: number, w: nu
  * a leitura sem que nenhum outro teste percebesse.
  */
 export function nosSobrepondoOCodigo(cena: Scene): SceneNode[] {
-  const codigos = cena.nodes.filter((no): no is QrNode => no.kind === 'qr');
-  if (codigos.length === 0) return [];
-
   const invasores: SceneNode[] = [];
 
-  for (const no of cena.nodes) {
-    if (no.kind === 'qr' || no.kind === 'image') continue; // o logo central invade de proposito
+  cena.nodes.forEach((no, indice) => {
+    if (no.kind === 'qr' || no.kind === 'image') return; // o logo central invade de proposito
+
+    /*
+     * So conta o que e desenhado DEPOIS do codigo. O que vem antes fica por
+     * baixo — a placa de fundo da moldura cobre a peca inteira e nao esconde
+     * modulo nenhum. Ignorar a ordem de pintura acusaria toda moldura.
+     */
+    const codigos = cena.nodes
+      .slice(0, indice)
+      .filter((anterior): anterior is QrNode => anterior.kind === 'qr');
 
     for (const codigo of codigos) {
       const dentro =
@@ -223,7 +229,7 @@ export function nosSobrepondoOCodigo(cena: Scene): SceneNode[] {
         break;
       }
     }
-  }
+  });
 
   return invasores;
 }

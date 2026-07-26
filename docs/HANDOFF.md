@@ -1,7 +1,7 @@
 # Handoff — continuação da refatoração
 
 > Documento vivo. Atualizado ao fim de cada incremento.
-> **Última atualização:** incremento 5 concluído.
+> **Última atualização:** incremento 6 concluído.
 >
 > Se você é uma nova sessão retomando este trabalho: leia este arquivo inteiro, depois
 > [PLANO.md](PLANO.md). O brand board em `docs/brand/` é autoritativo para qualquer decisão visual.
@@ -14,11 +14,11 @@
 | --------------------------- | ----------------------------------------- |
 | Branch                      | `refactor/fase-1` (publicada em `origin`) |
 | Tag do estado anterior      | `v1.0.0` → commit `9f06e6b`               |
-| Último incremento concluído | **5 — interface do gerador**              |
-| Próximo                     | **6 — as 14 molduras**                    |
+| Último incremento concluído | **6 — as 14 molduras**                    |
+| Próximo                     | **7 — exportação em PDF**                 |
 | `npm run check`             | passando                                  |
-| Testes unitários            | 205 passando                              |
-| `npm run test:e2e`          | 10 testes passando                        |
+| Testes unitários            | 232 passando                              |
+| `npm run test:e2e`          | 13 testes passando                        |
 
 Deploy previsto na Vercel. Sem domínio próprio ainda — `src/lib/site.ts` resolve a URL a
 partir de `NEXT_PUBLIC_SITE_URL`, depois `VERCEL_PROJECT_PRODUCTION_URL`, depois localhost.
@@ -298,12 +298,35 @@ confirmada" com a margem de dano medida. Era o item que ficou em aberto no incre
 - **O identificador da ficha sai do conteúdo, não do relógio** — dois artefatos iguais têm o
   mesmo código, e nada vaza sobre quando foi gerado.
 
-### Incremento 6 — As 14 molduras ← PRÓXIMO
+### ~~Incremento 6 — As 14 molduras~~ CONCLUÍDO
 
-8 do board + hang tag de roupa, grade N-up, cartão de visita, display de mesa, cartaz,
-faixa horizontal. Todas como funções puras `=> Scene`.
+`core/frames/` em três arquivos (`tipos`, `comum`, `molduras`), não catorze — um por moldura
+duplicaria os mesmos cinco auxiliares de layout, e o que separa uma da outra cabe em vinte
+linhas. Painel ligado à interface.
 
-### Incremento 7 — PDF
+**Toda cena passa por uma moldura**, inclusive "sem moldura", que é a primeira das catorze e
+não um caso especial. Existe um caminho só para compor; `construirCenaBasica` ficou para os
+testes de núcleo.
+
+**Dois bugs reais que os testes de moldura revelaram:**
+
+1. **A verificação rasterizava a peça inteira.** Grade recortável e display de mesa têm vários
+   conjuntos de padrões de localização na mesma imagem, e o decodificador não sabe qual
+   seguir — molduras perfeitamente legíveis eram reprovadas. Agora `verificarLeitura` recorta
+   para a região de um código, que é o que um scanner de fato enxerga. Nada se perde:
+   `nosSobrepondoOCodigo` continua garantindo que a moldura não invade, e o logo é transladado
+   junto.
+2. **`nosSobrepondoOCodigo` ignorava a ordem de pintura.** A placa de fundo de qualquer
+   moldura cobre a peça inteira e era acusada de invadir o código, mesmo estando por baixo.
+   Agora só conta o que é desenhado depois.
+
+O cartão de visita também descartava o logo silenciosamente — corrigido.
+
+**Testado por decodificação, não por inspeção:** cada uma das 14 molduras é composta,
+rasterizada e decodificada de volta, com cor Carbon e Ultramarine. O critério de aceite "as
+molduras renderizam corretamente" virou asserção.
+
+### Incremento 7 — PDF ← PRÓXIMO
 
 `pdf-lib` + `@pdf-lib/fontkit` em chunk `import()` disparado no clique. Fontes pré-subsetadas
 em build. Papéis A4/Carta/Etiqueta 50, marcas de corte, sangria 3 mm, ficha no rodapé,

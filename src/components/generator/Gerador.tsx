@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import type { IdMoldura } from '@/core/frames/tipos';
 import type { ErrorCorrection } from '@/core/qr/types';
 import { NIVEIS_CORRECAO, RECUPERACAO_POR_NIVEL } from '@/core/qr/types';
 import type { MargemDano } from '@/core/verify/damage';
@@ -22,6 +23,7 @@ import { FichaTecnica } from './FichaTecnica';
 import { PainelCor } from './PainelCor';
 import { PainelExportacao } from './PainelExportacao';
 import { PainelLogo } from './PainelLogo';
+import { PainelMoldura } from './PainelMoldura';
 import { PainelTamanho } from './PainelTamanho';
 import { Previa } from './Previa';
 import { RelatorioVerificacao } from './RelatorioVerificacao';
@@ -210,6 +212,20 @@ export function Gerador() {
           veredicto={derivado.logo}
           onLogo={(valor) => despachar({ tipo: 'logo', valor })}
           onTamanho={(valor) => despachar({ tipo: 'logo-tamanho', valor })}
+        />
+
+        <PainelMoldura
+          moldura={estado.moldura}
+          chamada={estado.chamada}
+          corMoldura={estado.corMoldura}
+          incluirFicha={estado.incluirFicha}
+          gradeColunas={estado.gradeColunas}
+          gradeLinhas={estado.gradeLinhas}
+          onMoldura={(valor: IdMoldura) => despachar({ tipo: 'moldura', valor })}
+          onChamada={(valor) => despachar({ tipo: 'chamada', valor })}
+          onCorMoldura={(valor) => despachar({ tipo: 'cor-moldura', valor })}
+          onIncluirFicha={(valor) => despachar({ tipo: 'incluir-ficha', valor })}
+          onGrade={(colunas, linhas) => despachar({ tipo: 'grade', colunas, linhas })}
         />
 
         <Botao tipo="destrutivo" className="w-fit" onClick={() => despachar({ tipo: 'limpar' })}>

@@ -1,9 +1,9 @@
+import { comporMoldura } from '@/core/frames/molduras';
 import { criarArtefato } from '@/core/qr/create';
 import type { ResultadoCriacao } from '@/core/qr/create';
 import { avaliarLogo, ladoDaMatrizMm } from '@/core/qr/logo';
 import type { VeredictoLogo } from '@/core/qr/logo';
 import type { QrArtifact } from '@/core/qr/types';
-import { construirCenaBasica } from '@/core/scene/build';
 import type { Scene } from '@/core/scene/types';
 import { paint } from '@/core/scene/types';
 import type { VeredictoContraste } from '@/lib/contrast';
@@ -53,28 +53,30 @@ export function derivar(estado: EstadoGerador): Derivado {
 
   const artefato = resultado.artefato;
 
-  const base = construirCenaBasica(artefato, lado, {
-    dark: paint(estado.corEscura),
-    light: paint(estado.corClara),
-  });
-
-  let cena = base;
   let ladoLogoMm: number | null = null;
   let logo: VeredictoLogo | null = null;
-
   if (estado.logo !== null) {
     ladoLogoMm = estado.logo.fracaoLado * ladoDaMatrizMm(artefato, lado);
     logo = avaliarLogo(artefato, lado, ladoLogoMm);
-
-    const canto = (lado - ladoLogoMm) / 2;
-    cena = {
-      ...base,
-      nodes: [
-        ...base.nodes,
-        { kind: 'image', x: canto, y: canto, w: ladoLogoMm, h: ladoLogoMm, href: estado.logo.dataUrl },
-      ],
-    };
   }
+
+  /*
+   * A cena vem sempre de uma moldura, mesmo quando o usuário não escolheu
+   * nenhuma: "sem moldura" é a primeira das catorze, não um caso especial.
+   * Assim existe um caminho só para compor, e não dois que poderiam divergir.
+   */
+  const cena = comporMoldura(estado.moldura, {
+    artefato,
+    ladoCodigoMm: lado,
+    dark: paint(estado.corEscura),
+    light: paint(estado.corClara),
+    corMoldura: paint(estado.corMoldura),
+    chamada: estado.chamada,
+    logo:
+      estado.logo === null || ladoLogoMm === null ? null : { href: estado.logo.dataUrl, ladoMm: ladoLogoMm },
+    incluirFicha: estado.incluirFicha,
+    grade: { colunas: estado.gradeColunas, linhas: estado.gradeLinhas },
+  });
 
   return {
     ladoMm: lado,

@@ -2,7 +2,7 @@ import { avaliarContraste } from '@/lib/contrast';
 import type { Bitmap } from '../render/raster';
 import { rasterizarCena } from '../render/raster';
 import { MODULO_CLARO_PADRAO, MODULO_ESCURO_PADRAO } from '../scene/build';
-import type { QrNode, Scene } from '../scene/types';
+import type { QrNode, Scene, SceneNode } from '../scene/types';
 import type { Decodificador } from './decode';
 import { PX_POR_MODULO_VERIFICACAO, decodificadorJsQr, escalaParaVerificacao } from './decode';
 
@@ -50,6 +50,40 @@ function codigoDaCena(cena: Scene): QrNode | null {
   return cena.nodes.find((no): no is QrNode => no.kind === 'qr') ?? null;
 }
 
+/**
+ * Recorta a cena para a área de um código, com tudo que é desenhado por cima
+ * dele transladado junto.
+ *
+ * É o que um scanner de fato enxerga quando apontado para o código, e resolve
+ * um problema concreto: molduras que repetem o código — a grade recortável e o
+ * display de mesa — apresentam vários conjuntos de padrões de localização na
+ * mesma imagem, e o decodificador não sabe qual seguir. Verificar a peça
+ * inteira reprovaria molduras perfeitamente legíveis.
+ *
+ * Nada se perde na checagem: quem garante que a moldura não invade os módulos é
+ * `nosSobrepondoOCodigo`, e o que invade de propósito (o logo) é transladado
+ * junto e continua sendo avaliado aqui.
+ */
+function cenaDeLeitura(cena: Scene, codigo: QrNode): Scene {
+  const inicio = cena.nodes.indexOf(codigo);
+  const nos: SceneNode[] = [{ ...codigo, x: 0, y: 0 }];
+
+  for (let i = inicio + 1; i < cena.nodes.length; i++) {
+    const no = cena.nodes[i];
+    if (no === undefined || no.kind === 'qr' || no.kind === 'text') continue;
+
+    const intersecta =
+      no.x < codigo.x + codigo.side &&
+      no.x + no.w > codigo.x &&
+      no.y < codigo.y + codigo.side &&
+      no.y + no.h > codigo.y;
+
+    if (intersecta) nos.push({ ...no, x: no.x - codigo.x, y: no.y - codigo.y });
+  }
+
+  return { ...cena, width: codigo.side, height: codigo.side, background: codigo.light, nodes: nos };
+}
+
 function semLogo(cena: Scene): Scene {
   return { ...cena, nodes: cena.nodes.filter((no) => no.kind !== 'image') };
 }
@@ -70,11 +104,16 @@ function tentar(cena: Scene, escala: number, opcoes: OpcoesVerificacao): string 
   return decodificador.decodificar(bitmap);
 }
 
-export function verificarLeitura(cena: Scene, opcoes: OpcoesVerificacao = {}): Veredicto {
-  const codigo = codigoDaCena(cena);
-  if (codigo === null) {
+export function verificarLeitura(cenaCompleta: Scene, opcoes: OpcoesVerificacao = {}): Veredicto {
+  const original = codigoDaCena(cenaCompleta);
+  if (original === null) {
     throw new Error('A cena nao contem nenhum codigo para verificar.');
   }
+
+  const cena = cenaDeLeitura(cenaCompleta, original);
+  const codigo = codigoDaCena(cena);
+  /* istanbul ignore next -- o recorte sempre carrega o codigo */
+  if (codigo === null) throw new Error('Recorte de leitura perdeu o codigo.');
 
   const esperado = cena.meta.payload;
   const pxPorModulo = opcoes.pxPorModulo ?? PX_POR_MODULO_VERIFICACAO;
