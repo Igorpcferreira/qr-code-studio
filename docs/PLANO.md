@@ -9,21 +9,21 @@
 
 Vindas da Etapa 1 e das suas respostas:
 
-| Decisão | Escolha | Origem |
-|---|---|---|
-| Framework | Next.js 16, App Router, `output: 'export'` | aprovado |
-| Fonte no PDF | Subset da marca, chunk carregado sob demanda | aprovado |
-| Limite de logo | Teto de 16% de área, só em H, exportação bloqueada se a verificação falhar | aprovado |
-| Escopo extra | Molduras 9–14 · PDF preto 100% K/spot · Teste de dano simulado · PWA offline + distância de leitura | aprovado |
-| Estado | `useReducer` + Context, sem Zustand | argumentado na Etapa 1 |
-| Decodificador | `jsqr` (56 KB gzip) em Web Worker, não `zxing-wasm` (440 KB gzip) | medido: concordaram em 24/24 casos |
-| Renderização SVG | `<path>` único com runs horizontais | medido: 69,7 KB → 8,2 KB |
+| Decisão          | Escolha                                                                                             | Origem                             |
+| ---------------- | --------------------------------------------------------------------------------------------------- | ---------------------------------- |
+| Framework        | Next.js 16, App Router, `output: 'export'`                                                          | aprovado                           |
+| Fonte no PDF     | Subset da marca, chunk carregado sob demanda                                                        | aprovado                           |
+| Limite de logo   | Teto de 16% de área, só em H, exportação bloqueada se a verificação falhar                          | aprovado                           |
+| Escopo extra     | Molduras 9–14 · PDF preto 100% K/spot · Teste de dano simulado · PWA offline + distância de leitura | aprovado                           |
+| Estado           | `useReducer` + Context, sem Zustand                                                                 | argumentado na Etapa 1             |
+| Decodificador    | `jsqr` (56 KB gzip) em Web Worker, não `zxing-wasm` (440 KB gzip)                                   | medido: concordaram em 24/24 casos |
+| Renderização SVG | `<path>` único com runs horizontais                                                                 | medido: 69,7 KB → 8,2 KB           |
 
 ---
 
 ## 1. A decisão central de arquitetura: uma cena, três backends
 
-O maior risco de execução deste projeto não é o motor de QR. É a **duplicação**: 14 molduras × 3 formatos de saída (SVG, PNG, PDF) = 42 implementações que precisam concordar pixel a pixel. Se cada renderer desenhar as molduras por conta própria, o critério de aceite *"as molduras renderizam corretamente em SVG e em PDF"* vira impossível de sustentar.
+O maior risco de execução deste projeto não é o motor de QR. É a **duplicação**: 14 molduras × 3 formatos de saída (SVG, PNG, PDF) = 42 implementações que precisam concordar pixel a pixel. Se cada renderer desenhar as molduras por conta própria, o critério de aceite _"as molduras renderizam corretamente em SVG e em PDF"_ vira impossível de sustentar.
 
 A solução é interpor uma **display list** entre a composição e o desenho:
 
@@ -43,24 +43,42 @@ conteúdo ──▶ /core/qr ──▶ QrArtifact ──┐
 
 ```ts
 export type SceneNode =
-  | { kind: 'rect';  x: number; y: number; w: number; h: number
-      fill?: Paint; stroke?: Paint; strokeWidth?: number }
-  | { kind: 'path';  d: string; fill: Paint }               // os módulos do QR
-  | { kind: 'text';  x: number; y: number; text: string
-      font: 'display' | 'mono'; size: number; weight: 400|500|600|700|800|900
-      tracking: number; align: 'start'|'middle'|'end'; fill: Paint
-      rotate?: 0 | -90 }                                    // -90 = etiqueta vertical
-  | { kind: 'image'; x: number; y: number; w: number; h: number; href: string }
+  | {
+      kind: 'rect';
+      x: number;
+      y: number;
+      w: number;
+      h: number;
+      fill?: Paint;
+      stroke?: Paint;
+      strokeWidth?: number;
+    }
+  | { kind: 'path'; d: string; fill: Paint } // os módulos do QR
+  | {
+      kind: 'text';
+      x: number;
+      y: number;
+      text: string;
+      font: 'display' | 'mono';
+      size: number;
+      weight: 400 | 500 | 600 | 700 | 800 | 900;
+      tracking: number;
+      align: 'start' | 'middle' | 'end';
+      fill: Paint;
+      rotate?: 0 | -90;
+    } // -90 = etiqueta vertical
+  | { kind: 'image'; x: number; y: number; w: number; h: number; href: string };
 
 export interface Scene {
-  width: number; height: number         // mm
-  background: Paint | null
-  nodes: SceneNode[]
-  meta: SceneMeta                       // ficha técnica, para molduras que a imprimem
+  width: number;
+  height: number; // mm
+  background: Paint | null;
+  nodes: SceneNode[];
+  meta: SceneMeta; // ficha técnica, para molduras que a imprimem
 }
 
 /** Paint carrega RGB e CMYK juntos: SVG/PNG usam rgb, PDF usa cmyk quando pedido. */
-export type Paint = { rgb: string; cmyk?: [number, number, number, number] }
+export type Paint = { rgb: string; cmyk?: [number, number, number, number] };
 ```
 
 O que isso compra:
@@ -74,23 +92,23 @@ O que isso compra:
 **Ajuste que proponho ao `QrArtifact` do brief.** Você especificou `matrix: boolean[][]`. Sugiro `Uint8Array` plana com acessor, e mantenho tudo o mais:
 
 ```ts
-export type ErrorCorrection = 'L' | 'M' | 'Q' | 'H'
+export type ErrorCorrection = 'L' | 'M' | 'Q' | 'H';
 
 export interface QrArtifact {
-  readonly data: Uint8Array           // size × size, linha-maior, 0|1
-  readonly size: number               // 21..177 (o moduleCount do brief)
-  readonly version: number            // 1..40
-  readonly errorCorrection: ErrorCorrection
-  readonly maskPattern: number
-  readonly quietZone: 4               // literal: não há como zerar
-  readonly payload: string
-  readonly byteLength: number
-  readonly capacityBytes: number      // teto da versão+nível, para a ficha técnica
-  isDark(x: number, y: number): boolean
+  readonly data: Uint8Array; // size × size, linha-maior, 0|1
+  readonly size: number; // 21..177 (o moduleCount do brief)
+  readonly version: number; // 1..40
+  readonly errorCorrection: ErrorCorrection;
+  readonly maskPattern: number;
+  readonly quietZone: 4; // literal: não há como zerar
+  readonly payload: string;
+  readonly byteLength: number;
+  readonly capacityBytes: number; // teto da versão+nível, para a ficha técnica
+  isDark(x: number, y: number): boolean;
 }
 ```
 
-Motivo: a matriz é lida em três lugares quentes (gerar path, rasterizar para verificar, rasterizar para dano simulado) e num v40 são 31.329 células. `boolean[][]` aloca 178 arrays; a plana aloca um buffer. O `isDark()` preserva a legibilidade nos laços e ainda faz o *bounds check* que o `boolean[][]` não faz. `quietZone: 4` como tipo literal implementa a regra do brief no compilador, não em runtime.
+Motivo: a matriz é lida em três lugares quentes (gerar path, rasterizar para verificar, rasterizar para dano simulado) e num v40 são 31.329 células. `boolean[][]` aloca 178 arrays; a plana aloca um buffer. O `isDark()` preserva a legibilidade nos laços e ainda faz o _bounds check_ que o `boolean[][]` não faz. `quietZone: 4` como tipo literal implementa a regra do brief no compilador, não em runtime.
 
 ---
 
@@ -135,14 +153,14 @@ Consultadas no registry em 25/07/2026. O brief dizia "Next.js 15+"; o atual é o
 
 ### Produção
 
-| Pacote | Versão | Papel | Custo no cliente |
-|---|---|---|---|
-| `next` | 16.2.12 | App Router, export estático | — |
-| `react` / `react-dom` | 19.2.8 | | — |
-| `qrcode` | 1.5.4 | só `create()`, entrada `browser` | ~12 KB gzip |
-| `jsqr` | 1.4.0 | verificação de leitura, dentro do Worker | 56 KB gzip |
-| `pdf-lib` | 1.17.1 | PDF vetorial | 202 KB gzip, **lazy** |
-| `@pdf-lib/fontkit` | 1.1.1 | subset de fonte no PDF | 330 KB gzip, **lazy** |
+| Pacote                | Versão  | Papel                                    | Custo no cliente      |
+| --------------------- | ------- | ---------------------------------------- | --------------------- |
+| `next`                | 16.2.12 | App Router, export estático              | —                     |
+| `react` / `react-dom` | 19.2.8  |                                          | —                     |
+| `qrcode`              | 1.5.4   | só `create()`, entrada `browser`         | ~12 KB gzip           |
+| `jsqr`                | 1.4.0   | verificação de leitura, dentro do Worker | 56 KB gzip            |
+| `pdf-lib`             | 1.17.1  | PDF vetorial                             | 202 KB gzip, **lazy** |
+| `@pdf-lib/fontkit`    | 1.1.1   | subset de fonte no PDF                   | 330 KB gzip, **lazy** |
 
 ### Desenvolvimento
 
@@ -168,11 +186,17 @@ Valores literais do board, sem interpretação:
 
 ```css
 @theme {
-  --color-carbon: #0E0F14;   --color-graphite: #1C1E26;
-  --color-steel: #6E7280;    --color-rule: #E1E3E9;
-  --color-quiet: #F3F4F7;    --color-white: #FFFFFF;
-  --color-ultramarine: #2C36F0;  --color-ultramarine-deep: #141C99;
-  --color-success: #30A46C;  --color-warning: #F5A524;  --color-error: #E5484D;
+  --color-carbon: #0e0f14;
+  --color-graphite: #1c1e26;
+  --color-steel: #6e7280;
+  --color-rule: #e1e3e9;
+  --color-quiet: #f3f4f7;
+  --color-white: #ffffff;
+  --color-ultramarine: #2c36f0;
+  --color-ultramarine-deep: #141c99;
+  --color-success: #30a46c;
+  --color-warning: #f5a524;
+  --color-error: #e5484d;
   --radius-none: 0px;
 }
 ```
@@ -184,9 +208,19 @@ Valores literais do board, sem interpretação:
 Carregada por `next/font/google`, que **baixa e auto-hospeda em tempo de build** — nenhuma requisição a `fonts.gstatic.com` em runtime, o que sustenta a promessa de que nada sai do navegador.
 
 ```ts
-const archivo = Archivo({ subsets:['latin'], axes:['wdth'], display:'swap', variable:'--font-display' })
-const plexSans = IBM_Plex_Sans({ subsets:['latin'], weight:['400','500','600'], display:'swap', variable:'--font-ui' })
-const plexMono = IBM_Plex_Mono({ subsets:['latin'], weight:['400','500'], display:'swap', variable:'--font-data' })
+const archivo = Archivo({ subsets: ['latin'], axes: ['wdth'], display: 'swap', variable: '--font-display' });
+const plexSans = IBM_Plex_Sans({
+  subsets: ['latin'],
+  weight: ['400', '500', '600'],
+  display: 'swap',
+  variable: '--font-ui',
+});
+const plexMono = IBM_Plex_Mono({
+  subsets: ['latin'],
+  weight: ['400', '500'],
+  display: 'swap',
+  variable: '--font-data',
+});
 ```
 
 **Correção ao board:** ele pede `Archivo Expanded` via `<link>`, mas essa família **não existe no Google Fonts** — a requisição do próprio board retorna HTTP 400, então hoje ele renderiza em Archivo normal. A largura expandida existe como **eixo `wdth` (62–125) da variável Archivo**. Entrego o que o board quis (`axes: ['wdth']` + `font-stretch` nos títulos), que é mais fiel que o que o board escreveu.
@@ -209,7 +243,7 @@ Os 8 do board (baixar, copiar, vetor, imprimir, cor, tamanho, correção, cadead
 
 O board é explícito e vou codificar isso:
 
-> *"No modo escuro, invertemos apenas a interface. O código continua escuro sobre claro para não falhar em scanners."*
+> _"No modo escuro, invertemos apenas a interface. O código continua escuro sobre claro para não falhar em scanners."_
 
 A cor dos módulos é independente do tema da UI. Além disso, um **aviso de polaridade** que o board não previu: se o usuário escolher um módulo escuro mais claro que o módulo claro, avisar — muitos scanners não leem código invertido, e a razão de contraste sozinha não detecta essa inversão.
 
@@ -221,7 +255,7 @@ A cor dos módulos é independente do tema da UI. Além disso, um **aviso de pol
 
 `lib/contrast.ts`: luminância relativa WCAG, razão `(L1+0.05)/(L2+0.05)`. Limiar de aviso em 4:1 conforme o board.
 
-Mas a interface vai dizer a verdade que medi: scanners usam diferença de refletância (ISO/IEC 15415), não a razão WCAG. `#6E7280` sobre branco dá ≈3,5:1 — **reprovado pelo limiar e mesmo assim decodificou sem erro** nos meus testes; 1,9:1 falhou. Então o texto do aviso é *"abaixo de 4:1 o código pode falhar em scanners"* (que é o que o board escreveu, e é honesto), e **quem dá o veredito final é a verificação real**, não o número.
+Mas a interface vai dizer a verdade que medi: scanners usam diferença de refletância (ISO/IEC 15415), não a razão WCAG. `#6E7280` sobre branco dá ≈3,5:1 — **reprovado pelo limiar e mesmo assim decodificou sem erro** nos meus testes; 1,9:1 falhou. Então o texto do aviso é _"abaixo de 4:1 o código pode falhar em scanners"_ (que é o que o board escreveu, e é honesto), e **quem dá o veredito final é a verificação real**, não o número.
 
 ### 5.2 Logo central
 
@@ -229,14 +263,14 @@ Teto de **16% de área**, exclusivo de `H`, recalculado em módulos por versão 
 
 O limite de 16% vem de medição, não de folclore. Meus dados, com logo alinhado ao grid, jsQR e ZXing concordando em todos os pontos:
 
-| Nível | 10% | 16% | 20% | 25% |
-|---|---|---|---|---|
-| L (v3) | ✗ | ✗ | ✗ | ✗ |
-| M (v4) | ✓ | ✗ | ✗ | ✗ |
-| Q (v4) | ✓ | ✗ | ✗ | ✗ |
-| **H (v6)** | ✓ | **✓** | ✓ | **✗** |
+| Nível      | 10% | 16%   | 20% | 25%   |
+| ---------- | --- | ----- | --- | ----- |
+| L (v3)     | ✗   | ✗     | ✗   | ✗     |
+| M (v4)     | ✓   | ✗     | ✗   | ✗     |
+| Q (v4)     | ✓   | ✗     | ✗   | ✗     |
+| **H (v6)** | ✓   | **✓** | ✓   | **✗** |
 
-O "25% com correção H" que todo concorrente publica **não passa em nenhum dos dois decodificadores**. Confunde 30% de recuperação de *codewords* com 30% de *área*, ignorando que uma oclusão central concentra o dano em blocos contíguos. 16% é 20% com margem.
+O "25% com correção H" que todo concorrente publica **não passa em nenhum dos dois decodificadores**. Confunde 30% de recuperação de _codewords_ com 30% de _área_, ignorando que uma oclusão central concentra o dano em blocos contíguos. 16% é 20% com margem.
 
 ### 5.3 Zona de silêncio
 
@@ -254,7 +288,7 @@ Fontes auto-hospedadas em build, sem analytics, sem CDN, sem rota de API, `outpu
 
 Somam-se às 8 do board, todas como funções puras `=> Scene`:
 
-9. **Hang tag de roupa** — furo de cordão marcado, formato vertical de etiqueta. *O caso de uso que originou o projeto.*
+9. **Hang tag de roupa** — furo de cordão marcado, formato vertical de etiqueta. _O caso de uso que originou o projeto._
 10. **Grade N-up** — 2×2, 3×3 ou 4×6 numa A4, com linhas de recorte entre as células.
 11. **Cartão de visita** — 90×50 mm, QR + linha de texto.
 12. **Display de mesa dobrável** — dois lados, linha de dobra pontilhada.
@@ -271,18 +305,18 @@ O `Paint` da `Scene` já carrega CMYK. Com a opção ligada, `renderPdf` usa `cm
 
 Extensão da verificação: sobre o `ImageData` já composto, aplicar degradações crescentes e decodificar a cada passo, reportando **a margem de segurança medida**:
 
-| Eixo | Faixa | Saída |
-|---|---|---|
-| Oclusão aleatória | 0–40% da área | "lê com até 22% de dano" |
-| Ruído gaussiano | σ 0–64 | "tolera impressão granulada" |
-| Borrão box | raio 0–6 px | "lê fora de foco até raio 4" |
-| Rotação | 0–45° | "lê inclinado até 30°" |
+| Eixo              | Faixa         | Saída                        |
+| ----------------- | ------------- | ---------------------------- |
+| Oclusão aleatória | 0–40% da área | "lê com até 22% de dano"     |
+| Ruído gaussiano   | σ 0–64        | "tolera impressão granulada" |
+| Borrão box        | raio 0–6 px   | "lê fora de foco até raio 4" |
+| Rotação           | 0–45°         | "lê inclinado até 30°"       |
 
 Roda no mesmo Worker, depois da verificação básica, sem bloquear a UI. Vira uma linha na ficha técnica: `MARGEM DE DANO 22%`.
 
 ### 6.4 PWA offline + distância de leitura
 
-Service worker escrito à mão (~60 linhas) — sem `next-pwa`, que está defasado para o Next 16 e traria peso para um problema simples. Precache do export estático, estratégia *cache-first* com atualização em segundo plano. O app passa a funcionar sem rede depois da primeira visita: **"não depende deste site" deixa de ser slogan e vira comportamento.**
+Service worker escrito à mão (~60 linhas) — sem `next-pwa`, que está defasado para o Next 16 e traria peso para um problema simples. Precache do export estático, estratégia _cache-first_ com atualização em segundo plano. O app passa a funcionar sem rede depois da primeira visita: **"não depende deste site" deixa de ser slogan e vira comportamento.**
 
 `lib/scan-distance.ts` calcula, a partir do lado e do DPI: distância máxima de leitura (regra de 10:1), lado mínimo recomendado para uma distância alvo, e o tamanho do módulo em mm — avisando abaixo de 0,4 mm, onde a impressão comum começa a falhar.
 
@@ -290,19 +324,19 @@ Service worker escrito à mão (~60 linhas) — sem `next-pwa`, que está defasa
 
 ## 7. Testes
 
-| Alvo | Tipo | O que garante |
-|---|---|---|
-| Tabela de capacidade | unit | as 160 células conferidas contra `qrcode`; upgrade que mude a tabela quebra o CI antes de a ficha mentir |
-| `lib/contrast.ts` | unit | bordas: iguais, preto/branco, polaridade invertida, canal único |
-| `lib/units.ts` | unit | px↔mm↔DPI ida e volta em 150/300/600 |
-| **Ida e volta** | unit | gerar → compor → rasterizar → decodificar → comparar, para **L/M/Q/H × 14 molduras × com e sem logo** |
-| Merge do SVG | unit | rasteriza o `<path>` único e compara **pixel a pixel** com um rect-por-módulo; qualquer divergência falha |
-| Molduras | snapshot | `Scene` serializada, uma por moldura |
-| Chamada de ação | unit | o payload nunca contém o texto da chamada |
-| Logo | unit | >16% ou nível ≠ H é rejeitado antes de renderizar |
-| Zero rede | e2e | fluxo completo sem uma requisição fora da origem |
-| `border-radius: 0` | e2e | varredura do DOM computado |
-| Teclado | e2e | fluxo inteiro sem mouse, foco visível em cada parada |
+| Alvo                 | Tipo     | O que garante                                                                                             |
+| -------------------- | -------- | --------------------------------------------------------------------------------------------------------- |
+| Tabela de capacidade | unit     | as 160 células conferidas contra `qrcode`; upgrade que mude a tabela quebra o CI antes de a ficha mentir  |
+| `lib/contrast.ts`    | unit     | bordas: iguais, preto/branco, polaridade invertida, canal único                                           |
+| `lib/units.ts`       | unit     | px↔mm↔DPI ida e volta em 150/300/600                                                                      |
+| **Ida e volta**      | unit     | gerar → compor → rasterizar → decodificar → comparar, para **L/M/Q/H × 14 molduras × com e sem logo**     |
+| Merge do SVG         | unit     | rasteriza o `<path>` único e compara **pixel a pixel** com um rect-por-módulo; qualquer divergência falha |
+| Molduras             | snapshot | `Scene` serializada, uma por moldura                                                                      |
+| Chamada de ação      | unit     | o payload nunca contém o texto da chamada                                                                 |
+| Logo                 | unit     | >16% ou nível ≠ H é rejeitado antes de renderizar                                                         |
+| Zero rede            | e2e      | fluxo completo sem uma requisição fora da origem                                                          |
+| `border-radius: 0`   | e2e      | varredura do DOM computado                                                                                |
+| Teclado              | e2e      | fluxo inteiro sem mouse, foco visível em cada parada                                                      |
 
 `npm run check` = `typecheck && lint && format:check && test && build`. GitHub Actions roda em cada PR, em Node 22 e 24.
 
@@ -312,30 +346,30 @@ Service worker escrito à mão (~60 linhas) — sem `next-pwa`, que está defasa
 
 Cada um termina com diff, `npm run check` verde e **parada para sua validação antes de commitar**. Na ordem que o brief pediu: núcleo primeiro, porque é onde está o risco.
 
-| # | Entrega | Contém |
-|---|---|---|
-| **0** | Fundação | Next 16 + TS strict + Tailwind 4 + tokens, ESLint/Prettier, Vitest, Playwright, `npm run check`, GitHub Actions. Vite e `global.css` removidos. App ainda não funciona — é andaime. |
-| **1** | `/core/qr` + `/lib` | `QrArtifact`, tabela de capacidade + teste das 160 células, contraste, unidades, distância de leitura. **Primeiro ponto em que o risco principal é eliminado.** |
-| **2** | `/core/scene` + `/core/render` SVG e PNG | Display list, `renderSvg` com path único, `renderCanvas`. Teste de equivalência pixel a pixel. |
-| **3** | `/core/verify` | Worker, jsQR, ida e volta nos 4 níveis, logo, dano simulado. |
-| **4** | Design system | `Logo` com troca automática em 16px, 8 ícones, componentes `/ui` nos quatro tipos e três estados, claro e escuro. |
-| **5** | UI do gerador | Campo, prévia com quiet zone visível, **ficha técnica com números reais**, correção, tamanho/DPI, cor com contraste, logo, relatório de verificação. Ponto em que o produto volta a funcionar de ponta a ponta. |
-| **6** | `/core/frames` | As 14 molduras em SVG, com painel e prévia. |
-| **7** | PDF | `pdf-lib` lazy, fontes subset, papéis, marcas de corte, sangria 3 mm, ficha no rodapé, preto 100% K, N-up. |
-| **8** | Rotas, PWA, acabamento | 4 páginas, sitemap, OG, service worker, acessibilidade completa, Lighthouse, **README novo**, `ROADMAP.md`, `ARQUITETURA.md`. |
+| #     | Entrega                                  | Contém                                                                                                                                                                                                          |
+| ----- | ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **0** | Fundação                                 | Next 16 + TS strict + Tailwind 4 + tokens, ESLint/Prettier, Vitest, Playwright, `npm run check`, GitHub Actions. Vite e `global.css` removidos. App ainda não funciona — é andaime.                             |
+| **1** | `/core/qr` + `/lib`                      | `QrArtifact`, tabela de capacidade + teste das 160 células, contraste, unidades, distância de leitura. **Primeiro ponto em que o risco principal é eliminado.**                                                 |
+| **2** | `/core/scene` + `/core/render` SVG e PNG | Display list, `renderSvg` com path único, `renderCanvas`. Teste de equivalência pixel a pixel.                                                                                                                  |
+| **3** | `/core/verify`                           | Worker, jsQR, ida e volta nos 4 níveis, logo, dano simulado.                                                                                                                                                    |
+| **4** | Design system                            | `Logo` com troca automática em 16px, 8 ícones, componentes `/ui` nos quatro tipos e três estados, claro e escuro.                                                                                               |
+| **5** | UI do gerador                            | Campo, prévia com quiet zone visível, **ficha técnica com números reais**, correção, tamanho/DPI, cor com contraste, logo, relatório de verificação. Ponto em que o produto volta a funcionar de ponta a ponta. |
+| **6** | `/core/frames`                           | As 14 molduras em SVG, com painel e prévia.                                                                                                                                                                     |
+| **7** | PDF                                      | `pdf-lib` lazy, fontes subset, papéis, marcas de corte, sangria 3 mm, ficha no rodapé, preto 100% K, N-up.                                                                                                      |
+| **8** | Rotas, PWA, acabamento                   | 4 páginas, sitemap, OG, service worker, acessibilidade completa, Lighthouse, **README novo**, `ROADMAP.md`, `ARQUITETURA.md`.                                                                                   |
 
 ---
 
 ## 9. Riscos remanescentes
 
-| Risco | Probabilidade | Mitigação |
-|---|---|---|
-| `jsqr` sem manutenção | média | versão fixa, interface `Decoder` isolada, suíte própria de ida e volta |
-| Tabela de capacidade em API privada do `qrcode` | baixa | tabela própria + teste cruzado que quebra no upgrade |
-| Chunk de PDF pesado (~570 KB gzip) | baixa | `import()` no clique, estado de carregamento, não afeta first-load nem Lighthouse |
-| Molduras divergirem entre SVG e PDF | **eliminado por construção** | uma `Scene`, três renderers burros |
-| 14 molduras × 4 níveis × 2 (logo) = 112 casos de ida e volta lentos no CI | média | matriz reduzida no pré-commit, completa no CI; medi 4–28 ms por decodificação, o conjunto fecha em ~10 s |
-| Lighthouse < 95 por causa das fontes | baixa | `display: 'swap'`, subset latin, auto-hospedagem, preload só do Display |
+| Risco                                                                     | Probabilidade                | Mitigação                                                                                                |
+| ------------------------------------------------------------------------- | ---------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `jsqr` sem manutenção                                                     | média                        | versão fixa, interface `Decoder` isolada, suíte própria de ida e volta                                   |
+| Tabela de capacidade em API privada do `qrcode`                           | baixa                        | tabela própria + teste cruzado que quebra no upgrade                                                     |
+| Chunk de PDF pesado (~570 KB gzip)                                        | baixa                        | `import()` no clique, estado de carregamento, não afeta first-load nem Lighthouse                        |
+| Molduras divergirem entre SVG e PDF                                       | **eliminado por construção** | uma `Scene`, três renderers burros                                                                       |
+| 14 molduras × 4 níveis × 2 (logo) = 112 casos de ida e volta lentos no CI | média                        | matriz reduzida no pré-commit, completa no CI; medi 4–28 ms por decodificação, o conjunto fecha em ~10 s |
+| Lighthouse < 95 por causa das fontes                                      | baixa                        | `display: 'swap'`, subset latin, auto-hospedagem, preload só do Display                                  |
 
 ---
 

@@ -1,0 +1,238 @@
+@import 'tailwindcss';
+
+/* ============================================================================
+   TOKENS
+   Valores literais de docs/brand/QR Code Studio - Brand Board.dc.html.
+   O board e autoritativo: nada aqui e interpretacao.
+   ============================================================================ */
+
+@theme {
+  /* ---- Paleta ------------------------------------------------------------ */
+  --color-carbon: #0e0f14; /* modulo escuro, texto principal, superficie escura */
+  --color-graphite: #1c1e26; /* cards elevados sobre Carbon no modo escuro */
+  --color-steel: #6e7280; /* texto secundario, rotulos, metadados */
+  --color-rule: #e1e3e9; /* bordas de 1px, divisores, linhas de tabela */
+  --color-quiet: #f3f4f7; /* fundo do app — nome vem da quiet zone do QR */
+  --color-white: #ffffff; /* modulo claro, superficie de cards */
+
+  /* Acento unico. Nao existe cor secundaria decorativa neste projeto. */
+  --color-ultramarine: #2c36f0;
+  --color-ultramarine-deep: #141c99;
+
+  /* Estados — uso parcimonioso */
+  --color-success: #30a46c;
+  --color-warning: #f5a524;
+  --color-error: #e5484d;
+
+  /* ---- Familias ---------------------------------------------------------- */
+  --font-display: var(--font-archivo), 'Archivo', ui-sans-serif, sans-serif;
+  --font-ui: var(--font-plex-sans), 'IBM Plex Sans', ui-sans-serif, sans-serif;
+  --font-data: var(--font-plex-mono), 'IBM Plex Mono', ui-monospace, monospace;
+
+  /* ---- Estrutura --------------------------------------------------------- *
+   * "border-radius: 0 em toda estrutura. Sem excecao."
+   * Zerar o namespace apaga TODAS as utilidades rounded-* do Tailwind: nao ha
+   * como escrever `rounded-lg` por engano, porque a classe deixa de existir.
+   * O mesmo vale para sombra difusa e desfoque, que o board proibe.           */
+  --radius-*: initial;
+  --shadow-*: initial;
+  --blur-*: initial;
+
+  /* Unico anel permitido: o do campo valido, duro e sem espalhamento. */
+  --shadow-ring: 0 0 0 2px color-mix(in srgb, var(--color-ultramarine) 18%, transparent);
+}
+
+/* ============================================================================
+   TOKENS SEMANTICOS
+   `@theme inline` faz as utilidades emitirem var(--x) em vez do valor resolvido,
+   entao elas seguem a troca de tema em runtime.
+   ============================================================================ */
+
+@theme inline {
+  --color-surface: var(--surface);
+  --color-surface-card: var(--surface-card);
+  --color-surface-inverse: var(--surface-inverse);
+  --color-fg: var(--fg);
+  --color-fg-muted: var(--fg-muted);
+  --color-hairline: var(--hairline);
+  --color-accent-text: var(--accent-text);
+}
+
+/* A variante `dark:` do Tailwind so olha para prefers-color-scheme por padrao,
+   o que ignoraria o seletor manual de tema. Redefinida aqui para honrar os dois.
+   A maior parte das cores nem precisa dela — resolve via light-dark() — mas
+   propriedades nao-cromaticas precisam. */
+@custom-variant dark {
+  @media (prefers-color-scheme: dark) {
+    &:where(:root:not([data-theme='light']), :root:not([data-theme='light']) *) {
+      @slot;
+    }
+  }
+  &:where([data-theme='dark'], [data-theme='dark'] *) {
+    @slot;
+  }
+}
+
+:root {
+  /* `light-dark()` resolve pelo color-scheme, entao o par claro/escuro fica
+     declarado uma vez so — e o seletor de tema apenas troca o color-scheme. */
+  color-scheme: light dark;
+
+  --surface: light-dark(#f3f4f7, #0e0f14);
+  --surface-card: light-dark(#ffffff, #1c1e26);
+  --surface-inverse: light-dark(#0e0f14, #ffffff);
+  --fg: light-dark(#0e0f14, #ffffff);
+  --fg-muted: #6e7280; /* Steel funciona nos dois modos, conforme o board */
+  --hairline: light-dark(#e1e3e9, #1c1e26);
+
+  /* Texto sobre fundo claro quando o acento e o assunto (selo de permanencia):
+     Ultramarine Deep no claro, branco no escuro — como o board desenha. */
+  --accent-text: light-dark(#141c99, #ffffff);
+
+  /* ---- Cores do proprio QR ------------------------------------------------ *
+   * REGRA DO BOARD, secao "Tela principal":
+   *   "No modo escuro, invertemos apenas a interface. O codigo continua escuro
+   *    sobre claro para nao falhar em scanners."
+   * Estes dois NUNCA entram em light-dark(). Sao independentes do tema.        */
+  --qr-dark: #0e0f14;
+  --qr-light: #ffffff;
+}
+
+[data-theme='light'] {
+  color-scheme: light;
+}
+[data-theme='dark'] {
+  color-scheme: dark;
+}
+
+/* ============================================================================
+   ESCALA TIPOGRAFICA — valores exatos do board (secao 03)
+   ============================================================================ */
+
+@utility type-display {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: 3.75rem; /* 60 */
+  line-height: 3.875rem; /* 62 */
+  letter-spacing: -0.03em;
+  font-stretch: 125%; /* eixo wdth do Archivo variavel */
+  text-wrap: pretty;
+}
+
+@utility type-h1 {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 2.5rem; /* 40 */
+  line-height: 2.875rem; /* 46 */
+  letter-spacing: -0.02em;
+  text-wrap: pretty;
+}
+
+@utility type-h2 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.75rem; /* 28 */
+  line-height: 2.125rem; /* 34 */
+  letter-spacing: -0.01em;
+}
+
+@utility type-h3 {
+  font-family: var(--font-ui);
+  font-weight: 600;
+  font-size: 1.25rem; /* 20 */
+  line-height: 1.75rem; /* 28 */
+}
+
+@utility type-body {
+  font-family: var(--font-ui);
+  font-weight: 400;
+  font-size: 1rem; /* 16 */
+  line-height: 1.625rem; /* 26 */
+}
+
+@utility type-small {
+  font-family: var(--font-ui);
+  font-weight: 400;
+  font-size: 0.875rem; /* 14 */
+  line-height: 1.375rem; /* 22 */
+}
+
+@utility type-caption {
+  font-family: var(--font-ui);
+  font-weight: 500;
+  font-size: 0.75rem; /* 12 */
+  line-height: 1.125rem; /* 18 */
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+/* Obrigatorio em URL, versao, contagem de modulos, dimensoes, capacidade e
+   nivel de correcao. Tabular nums para as colunas da ficha tecnica alinharem. */
+@utility type-mono {
+  font-family: var(--font-data);
+  font-weight: 500;
+  font-size: 0.8125rem; /* 13 */
+  line-height: 1.25rem; /* 20 */
+  font-variant-numeric: tabular-nums;
+}
+
+/* Rotulo de secao do board: mono, 11px, tracking largo. */
+@utility type-eyebrow {
+  font-family: var(--font-data);
+  font-weight: 400;
+  font-size: 0.6875rem; /* 11 */
+  line-height: 1rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+
+/* ============================================================================
+   BASE
+   ============================================================================ */
+
+@layer base {
+  /* A regra do raio zero, aplicada tambem sobre os estilos de user agent
+     (checkbox, range, select), que o reset do Tailwind nao zera. */
+  *,
+  ::before,
+  ::after {
+    border-radius: 0;
+  }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    background-color: var(--surface);
+    color: var(--fg);
+    font-family: var(--font-ui);
+    font-size: 1rem;
+    line-height: 1.625rem;
+  }
+
+  /* Board, secao 04: "Foco: 2 px Ultramarine com deslocamento 2 px." */
+  :focus-visible {
+    outline: 2px solid var(--color-ultramarine);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background-color: var(--color-ultramarine);
+    color: var(--color-white);
+  }
+}
+
+/* Acessibilidade nao e opcional. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

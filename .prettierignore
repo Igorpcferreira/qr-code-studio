@@ -1,13 +1,10 @@
 node_modules
 .next
-/out
-/dist
-.vite
+out
 coverage
 playwright-report
 test-results
-*.tsbuildinfo
+package-lock.json
 next-env.d.ts
-.env*.local
-.vercel
-.DS_Store
+docs/brand
+public/fonts
