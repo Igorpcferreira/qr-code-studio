@@ -105,8 +105,20 @@ describe('ControleSegmentado', () => {
     expect(html.match(/tabindex="-1"/g)).toHaveLength(3);
   });
 
-  it('carrega a descrição longa para quem usa leitor de tela', () => {
-    expect(render()).toContain('aria-label="Correção L, recupera 7%"');
+  /**
+   * WCAG 2.5.3 (Label in Name): o nome acessível precisa conter o texto visível.
+   * Trocar "L" por "Correção L, recupera 7%" faria comando de voz e leitor de
+   * tela discordarem do que está na tela — o rótulo vem primeiro, a descrição
+   * complementa.
+   */
+  it('o nome acessível começa pelo rótulo visível', () => {
+    const html = render();
+    expect(html).toContain('aria-label="L, Correção L, recupera 7%"');
+  });
+
+  it('sem descrição não inventa nome acessível', () => {
+    // A opção "M" não tem descrição: o texto visível já basta.
+    expect(render()).not.toContain('aria-label="M,');
   });
 
   it('a legenda nomeia o grupo', () => {

@@ -25,7 +25,7 @@ function Linha({ rotulo, children, destaque }: LinhaProps) {
   return (
     <div className="border-hairline grid grid-cols-[1fr_auto] gap-4 border-b px-4 py-3 last:border-b-0">
       <dt className="text-fg-muted tracking-[0.06em]">{rotulo}</dt>
-      <dd className={`font-medium ${destaque === true ? 'text-ultramarine' : ''}`}>{children}</dd>
+      <dd className={`font-medium ${destaque === true ? 'text-accent-link' : ''}`}>{children}</dd>
     </div>
   );
 }

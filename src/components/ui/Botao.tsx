@@ -28,7 +28,9 @@ const POR_TIPO: Readonly<Record<TipoBotao, string>> = {
   ].join(' '),
 
   fantasma: [
-    'text-ultramarine px-5 py-3.5',
+    // `accent-link` e o Ultramarine ajustado por tema: o puro nao e legivel
+    // como texto sobre Carbon.
+    'text-accent-link px-5 py-3.5',
     'hover:not-disabled:text-ultramarine-deep hover:not-disabled:bg-surface hover:not-disabled:underline',
     'disabled:text-steel',
   ].join(' '),

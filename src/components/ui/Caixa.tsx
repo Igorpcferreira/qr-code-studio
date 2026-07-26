@@ -59,7 +59,7 @@ export function Caixa({ rotulo, descricao, marcada, onChange, disabled, classNam
         )}
       </span>
 
-      <span className="type-mono text-ultramarine ml-auto">{marcada ? 'ATIVO' : '—'}</span>
+      <span className="type-mono text-accent-link ml-auto">{marcada ? 'ATIVO' : '—'}</span>
     </label>
   );
 }

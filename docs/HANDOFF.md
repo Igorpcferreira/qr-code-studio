@@ -1,7 +1,7 @@
 # Handoff — continuação da refatoração
 
 > Documento vivo. Atualizado ao fim de cada incremento.
-> **Última atualização:** incremento 7 concluído.
+> **Última atualização:** Fase 1 concluída (incremento 8).
 >
 > Se você é uma nova sessão retomando este trabalho: leia este arquivo inteiro, depois
 > [PLANO.md](PLANO.md). O brand board em `docs/brand/` é autoritativo para qualquer decisão visual.
@@ -14,11 +14,12 @@
 | --------------------------- | ----------------------------------------- |
 | Branch                      | `refactor/fase-1` (publicada em `origin`) |
 | Tag do estado anterior      | `v1.0.0` → commit `9f06e6b`               |
-| Último incremento concluído | **7 — exportação em PDF**                 |
-| Próximo                     | **8 — rotas, PWA e acabamento**           |
+| Último incremento concluído | **8 — rotas, PWA e acabamento**           |
+| Próximo                     | **Fase 2 — ver ROADMAP.md**               |
 | `npm run check`             | passando                                  |
-| Testes unitários            | 247 passando                              |
-| `npm run test:e2e`          | 15 testes passando                        |
+| Testes unitários            | 248 passando                              |
+| `npm run test:e2e`          | 23 testes passando                        |
+| Lighthouse                  | 98 / 100 / 100 / 100                      |
 
 Deploy previsto na Vercel. Sem domínio próprio ainda — `src/lib/site.ts` resolve a URL a
 partir de `NEXT_PUBLIC_SITE_URL`, depois `VERCEL_PROJECT_PRODUCTION_URL`, depois localhost.
@@ -361,14 +362,26 @@ impressão essa é a propriedade que mais importa.
 PNG/JPEG/SVG dentro do chunk, e um logo rasterizado num arquivo vendido como vetorial seria
 contraditório. SVG e PNG seguem levando o logo.
 
-### Incremento 8 — Rotas, PWA e acabamento ← PRÓXIMO
+### ~~Incremento 8 — Rotas, PWA e acabamento~~ CONCLUÍDO
 
-`/`, `/qr-code-url`, `/qr-code-texto`, `/qr-estatico-vs-dinamico`. Sitemap, robots, OG.
-Service worker escrito à mão (~60 linhas, sem `next-pwa`). Acessibilidade completa,
-Lighthouse >95, **README novo em português como peça de portfólio**, `ROADMAP.md` com as
-Fases 2 e 3, `ARQUITETURA.md`.
+Quatro rotas (`/`, `/qr-code-url/`, `/qr-code-texto/`, `/qr-estatico-vs-dinamico/`), sitemap,
+robots, manifesto, ícones gerados da própria geometria da marca, service worker escrito à mão,
+README, ROADMAP e ARQUITETURA.
 
----
+**Lighthouse: 98 / 100 / 100 / 100.** Chegar a 100 em acessibilidade exigiu corrigir três coisas
+reais, duas delas contradizendo o brand board:
+
+1. **Steel `#6E7280` não passa em AA como texto secundário** — 4,36:1 sobre Quiet e 3,99:1 sobre
+   Carbon, contra o mínimo de 4,5:1. O board afirma que serve nos dois modos; a conta diz o
+   contrário. Ajustado por tema mantendo o matiz (`#696D7A` / `#888C99`).
+2. **Ultramarine como texto sobre Carbon dá 2,64:1.** O board acerta que ele serve em texto
+   pequeno — mas só sobre fundo claro. Criado `--accent-link`, que é o mesmo matiz clareado no
+   escuro, não um segundo acento.
+3. **`aria-label` que substituía o rótulo visível** violava a WCAG 2.5.3. Agora o nome acessível
+   começa pelo texto que está na tela.
+
+**Fase 1 encerrada.** O que segue está em [ROADMAP.md](ROADMAP.md), com as dívidas conhecidas
+registradas e justificadas.
 
 ## 5. Comandos
 
