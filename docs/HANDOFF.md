@@ -1,7 +1,7 @@
 # Handoff — continuação da refatoração
 
 > Documento vivo. Atualizado ao fim de cada incremento.
-> **Última atualização:** incremento 1 concluído.
+> **Última atualização:** incremento 2 concluído.
 >
 > Se você é uma nova sessão retomando este trabalho: leia este arquivo inteiro, depois
 > [PLANO.md](PLANO.md). O brand board em `docs/brand/` é autoritativo para qualquer decisão visual.
@@ -14,10 +14,10 @@
 | --------------------------- | ----------------------------------------- |
 | Branch                      | `refactor/fase-1` (publicada em `origin`) |
 | Tag do estado anterior      | `v1.0.0` → commit `9f06e6b`               |
-| Último incremento concluído | **1 — núcleo `/core/qr` e `/lib`**        |
-| Próximo                     | **2 — `/core/scene` e renderers SVG/PNG** |
+| Último incremento concluído | **2 — display list e renderers SVG/PNG**  |
+| Próximo                     | **3 — `/core/verify`**                    |
 | `npm run check`             | passando                                  |
-| Testes unitários            | 71 passando                               |
+| Testes unitários            | 102 passando                              |
 | `npm run test:e2e`          | 3 testes passando                         |
 
 Deploy previsto na Vercel. Sem domínio próprio ainda — `src/lib/site.ts` resolve a URL a
@@ -135,6 +135,14 @@ forma inexplicável, **confira primeiro quem está na 4173**:
 Get-NetTCPConnection -LocalPort 4173 -State Listen | ForEach-Object { Get-Process -Id $_.OwningProcess }
 ```
 
+### Vitest não faz typecheck — testes verdes não garantem tipos corretos
+
+No incremento 2 os renderers comparavam `align` com valores em português enquanto o tipo
+declarava inglês. Os 100 testes passavam, porque nenhum conferia o `text-anchor` de saída;
+só `tsc` pegou. Lição prática: **teste comportamento, não só ausência de exceção**, e nunca
+trate `npm run test` verde como sinal de que os tipos batem. `npm run check` roda o typecheck
+primeiro justamente por isso.
+
 ### `npm audit` reporta 9 high, 3 em produção
 
 Todas transitivas e sem correção upstream: `postcss` e `sharp`/libvips via `next`,
@@ -166,13 +174,40 @@ avaliarContraste(moduloEscuro, moduloClaro)        // razão, nível, polaridade
 avaliarImpressao({ ladoMm, modulosComQuietZone, dpi })
 ```
 
-### Incremento 2 — `/core/scene` e renderers SVG/PNG ← PRÓXIMO
+### ~~Incremento 2 — `/core/scene` e renderers SVG/PNG~~ CONCLUÍDO
 
-A display list descrita em PLANO.md §1. `renderSvg` com **`<path>` único** por runs
-horizontais — medido: 69,7 KB → 8,2 KB num v8. Teste de equivalência pixel a pixel contra
-um rect por módulo.
+Entregue: `core/scene/types.ts` (a display list), `core/scene/build.ts`,
+`core/render/modules-path.ts`, `svg.ts`, `raster.ts` e `canvas.ts`.
 
-### Incremento 3 — `/core/verify`
+**Mudança em relação ao plano:** o nó do código é `{ kind: 'qr', artifact }`, não
+`{ kind: 'path', d }`. Com o caminho já resolvido, o rasterizador precisaria de um
+interpretador de SVG path completo para poder verificar a leitura. Guardando o artefato, cada
+renderer resolve como lhe convém e nenhum precisa entender a sintaxe do outro.
+
+**Duas rotas de rasterização, de propósito:**
+
+| Função                           | Onde roda     | Para quê                        |
+| -------------------------------- | ------------- | ------------------------------- |
+| `rasterizarCena` (puro, sem DOM) | Node e Worker | verificação de leitura e testes |
+| `desenharCena` (Canvas2D)        | navegador     | prévia na tela e PNG            |
+
+Só podem divergir em texto e imagem, que por construção ficam fora da área do código —
+invariante checada por `nosSobrepondoOCodigo()`, que também protege a regra "a chamada de ação
+é impressa ao lado, nunca por cima". **O incremento 3 precisa fechar esse circuito
+decodificando as duas saídas.**
+
+**Números reais medidos** (v8, 49×49, 1.256 módulos escuros, **615 runs**): SVG de 69,6 KB
+com um rect por módulo cai para **8,6 KB** com path único — 8,1×. Depois do gzip a diferença
+encolhe (3,1 KB contra 2,0 KB), então o argumento de peso não é o tamanho: é **1 objeto em vez
+de 1.256** ao abrir no Illustrator. _(A investigação dizia 599 runs; aquela contagem foi feita
+sobre a matriz transposta.)_
+
+**Pendência anotada para os incrementos 6 e 7:** texto no SVG vai como `<text>` com a família
+apenas referenciada. Uma gráfica sem Archivo instalado substitui a fonte. Converter para
+contornos exige um motor de fonte — o `@pdf-lib/fontkit` já estará carregado no caminho de PDF
+e pode servir aqui. Decidir quando as molduras existirem.
+
+### Incremento 3 — `/core/verify` ← PRÓXIMO
 
 `jsqr` fixado sem `^`, dentro de Web Worker com `OffscreenCanvas`, com debounce.
 Ida e volta nos 4 níveis, com e sem logo. Teste de dano simulado (oclusão, ruído, borrão,
