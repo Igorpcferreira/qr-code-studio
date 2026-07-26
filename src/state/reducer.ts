@@ -1,3 +1,5 @@
+import type { Formularios, TipoConteudo } from '@/core/content/tipos';
+import { FORMULARIOS_INICIAIS } from '@/core/content/tipos';
 import type { IdMoldura } from '@/core/frames/tipos';
 import { normalizarChamada } from '@/core/frames/tipos';
 import type { ErrorCorrection } from '@/core/qr/types';
@@ -21,7 +23,12 @@ export interface LogoSelecionado {
 }
 
 export interface EstadoGerador {
-  readonly conteudo: string;
+  readonly tipoConteudo: TipoConteudo;
+  /**
+   * Os nove formulários, todos vivos ao mesmo tempo. Espiar outro tipo não
+   * pode apagar o vCard que a pessoa acabou de preencher.
+   */
+  readonly formularios: Formularios;
   readonly nivel: ErrorCorrection;
   /** Lado do código na unidade corrente, sem conversão implícita. */
   readonly lado: number;
@@ -41,7 +48,8 @@ export interface EstadoGerador {
 }
 
 export const ESTADO_INICIAL: EstadoGerador = {
-  conteudo: '',
+  tipoConteudo: 'url',
+  formularios: FORMULARIOS_INICIAIS,
   nivel: 'H',
   lado: 1024,
   unidade: 'px',
@@ -67,8 +75,25 @@ export const CORES_MOLDURA = [
   { nome: 'Steel', hex: '#6e7280' },
 ] as const;
 
+/**
+ * Escrita num campo do formulário corrente.
+ *
+ * Distribuída sobre `TipoConteudo` para que o `patch` seja verificado contra o
+ * formulário certo: `{ conteudo: 'pix', patch: { ssid: 'x' } }` não compila.
+ * Sem a distribuição, `patch` viraria a união de todos os formulários e
+ * qualquer campo passaria em qualquer tipo.
+ */
+export type AcaoFormulario = {
+  [K in TipoConteudo]: {
+    readonly tipo: 'formulario';
+    readonly conteudo: K;
+    readonly patch: Partial<Formularios[K]>;
+  };
+}[TipoConteudo];
+
 export type AcaoGerador =
-  | { readonly tipo: 'conteudo'; readonly valor: string }
+  | AcaoFormulario
+  | { readonly tipo: 'tipo-conteudo'; readonly valor: TipoConteudo }
   | { readonly tipo: 'nivel'; readonly valor: ErrorCorrection }
   | { readonly tipo: 'lado'; readonly valor: number }
   | { readonly tipo: 'unidade'; readonly valor: Unidade }
@@ -91,8 +116,23 @@ export const LADO_MAXIMO_MM = 1000;
 
 export function reducer(estado: EstadoGerador, acao: AcaoGerador): EstadoGerador {
   switch (acao.tipo) {
-    case 'conteudo':
-      return { ...estado, conteudo: acao.valor };
+    case 'tipo-conteudo':
+      return { ...estado, tipoConteudo: acao.valor };
+
+    case 'formulario': {
+      /*
+       * A asserção existe porque a chave computada faz o TypeScript perder a
+       * correspondência entre `conteudo` e o formulário correspondente. A união
+       * distribuída em `AcaoFormulario` já garantiu isso no ponto de chamada,
+       * que é onde o erro seria cometido.
+       */
+      const formularios = {
+        ...estado.formularios,
+        [acao.conteudo]: { ...estado.formularios[acao.conteudo], ...acao.patch },
+      } as Formularios;
+
+      return { ...estado, formularios };
+    }
 
     case 'nivel': {
       /*
@@ -163,7 +203,7 @@ export function reducer(estado: EstadoGerador, acao: AcaoGerador): EstadoGerador
 
     case 'limpar':
       // Preserva as preferências de saída; zera só o que é do artefato.
-      return { ...estado, conteudo: '', logo: null };
+      return { ...estado, formularios: FORMULARIOS_INICIAIS, logo: null };
   }
 }
 

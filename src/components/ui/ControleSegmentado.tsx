@@ -1,5 +1,6 @@
 'use client';
 
+import { useId } from 'react';
 import type { ReactNode } from 'react';
 
 /**
@@ -24,6 +25,13 @@ export interface ControleSegmentadoProps<T extends string> {
   onChange: (valor: T) => void;
   /** Nó livre à direita da legenda, para a legenda de trade-off do board. */
   apoio?: ReactNode;
+  /**
+   * `grade` para conjuntos que não cabem numa linha — os nove tipos de
+   * conteúdo. É só disposição: a semântica de `radiogroup` e a navegação por
+   * setas continuam idênticas, que é o motivo de não existir um segundo
+   * componente para isso.
+   */
+  layout?: 'linha' | 'grade';
   className?: string;
 }
 
@@ -33,9 +41,19 @@ export function ControleSegmentado<T extends string>({
   valor,
   onChange,
   apoio,
+  layout = 'linha',
   className,
 }: ControleSegmentadoProps<T>) {
   const indiceAtual = opcoes.findIndex((o) => o.valor === valor);
+  const grade = layout === 'grade';
+
+  /*
+   * `useId` e não um identificador derivado da legenda: "Tipo de conteúdo" tem
+   * espaço, e `aria-labelledby` trata espaço como separador de referências.
+   * Uma legenda de três palavras viraria três ids inexistentes e o grupo
+   * ficaria sem nome acessível.
+   */
+  const idLegenda = useId();
 
   function aoTeclar(evento: React.KeyboardEvent<HTMLDivElement>): void {
     const passo =
@@ -55,7 +73,7 @@ export function ControleSegmentado<T extends string>({
   return (
     <div className={`flex flex-col gap-2.5 ${className ?? ''}`}>
       <div className="flex items-baseline gap-3">
-        <span className="type-caption" id={`legenda-${legenda}`}>
+        <span className="type-caption" id={idLegenda}>
           {legenda}
         </span>
         {apoio}
@@ -63,9 +81,9 @@ export function ControleSegmentado<T extends string>({
 
       <div
         role="radiogroup"
-        aria-labelledby={`legenda-${legenda}`}
+        aria-labelledby={idLegenda}
         onKeyDown={aoTeclar}
-        className="flex w-fit border border-fg"
+        className={grade ? 'grid grid-cols-2 gap-2.5 sm:grid-cols-3' : 'flex w-fit border border-fg'}
       >
         {opcoes.map((opcao, i) => {
           const ativo = opcao.valor === valor;
@@ -80,18 +98,39 @@ export function ControleSegmentado<T extends string>({
                * exige que o nome contenha o texto que está na tela: substituir
                * "URL" por "Endereço de site" faria comando de voz e leitor de
                * tela discordarem do que o usuário vê.
+               *
+               * Na grade a descrição já está impressa dentro do botão, então
+               * repeti-la em `aria-label` seria anunciá-la duas vezes.
                */
-              aria-label={opcao.descricao === undefined ? undefined : `${opcao.rotulo}, ${opcao.descricao}`}
+              aria-label={
+                grade || opcao.descricao === undefined ? undefined : `${opcao.rotulo}, ${opcao.descricao}`
+              }
               // Só a opção ativa entra na ordem de tabulação; as setas fazem o resto.
               tabIndex={ativo ? 0 : -1}
               onClick={() => onChange(opcao.valor)}
-              className={[
-                'type-mono px-5 py-2.5 transition-colors',
-                i < opcoes.length - 1 ? 'border-r border-fg' : '',
-                ativo ? 'bg-ultramarine font-medium text-white' : 'bg-surface-card text-fg hover:bg-surface',
-              ].join(' ')}
+              className={
+                grade
+                  ? [
+                      'flex flex-col items-start gap-1 border px-4 py-3 text-left transition-colors',
+                      ativo
+                        ? 'border-ultramarine bg-ultramarine text-white'
+                        : 'border-hairline bg-surface-card text-fg hover:border-fg',
+                    ].join(' ')
+                  : [
+                      'type-mono px-5 py-2.5 transition-colors',
+                      i < opcoes.length - 1 ? 'border-r border-fg' : '',
+                      ativo
+                        ? 'bg-ultramarine font-medium text-white'
+                        : 'bg-surface-card text-fg hover:bg-surface',
+                    ].join(' ')
+              }
             >
-              {opcao.rotulo}
+              <span className="type-mono">{opcao.rotulo}</span>
+              {grade && opcao.descricao !== undefined ? (
+                <span className={`type-small ${ativo ? 'text-white/80' : 'text-fg-muted'}`}>
+                  {opcao.descricao}
+                </span>
+              ) : null}
             </button>
           );
         })}
