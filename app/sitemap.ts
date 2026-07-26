@@ -11,7 +11,15 @@ import { SITE_URL } from '@/lib/site';
 export const dynamic = 'force-static';
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const rotas = ['', 'qr-code-url', 'qr-code-texto', 'qr-estatico-vs-dinamico'];
+  const rotas = [
+    '',
+    'qr-code-url',
+    'qr-code-texto',
+    'qr-code-pix',
+    'qr-code-wifi',
+    'qr-code-em-lote',
+    'qr-estatico-vs-dinamico',
+  ];
 
   return rotas.map((rota) => ({
     url: rota === '' ? `${SITE_URL}/` : `${SITE_URL}/${rota}/`,
