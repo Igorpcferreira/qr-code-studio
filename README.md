@@ -21,6 +21,14 @@ scanners, então só a interface muda. Há teste E2E cobrando isso.
 
 </details>
 
+<p align="center">
+  <img alt="O site aberto no celular em modo escuro: cabeçalho, selo de permanência, seletor de tema e a manchete" src="docs/imagens/tela-dark-celular.png" width="262">
+  &nbsp;&nbsp;&nbsp;
+  <img alt="A mesma tela no celular em modo claro" src="docs/imagens/tela-light-celular.png" width="262">
+</p>
+
+<p align="center"><sub>No celular a tela vira uma coluna só, e o tema escolhido no cabeçalho vale igual — a escolha sobrevive ao recarregamento nos dois formatos.</sub></p>
+
 ---
 
 ## A tese
