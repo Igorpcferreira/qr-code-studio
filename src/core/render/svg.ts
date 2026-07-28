@@ -1,4 +1,6 @@
 import type { Paint, QrNode, RectNode, Scene, SceneNode, TextNode } from '../scene/types';
+import type { Tinta } from './formas';
+import { camadasDasPrimitivas, primitivasDoCodigo } from './formas';
 import { caminhoDosModulos } from './modules-path';
 
 /**
@@ -67,14 +69,38 @@ function renderQr(no: QrNode, p: number): string {
     `<rect x="${num(no.x, p)}" y="${num(no.y, p)}" ` +
     `width="${num(no.side, p)}" height="${num(no.side, p)}" fill="${no.light.rgb}"/>`;
 
-  const caminho = caminhoDosModulos(no.artifact);
+  const grupo = `<g transform="translate(${num(no.x, p)} ${num(no.y, p)}) scale(${num(escala, 6)})">`;
 
-  return (
-    placa +
-    `<g transform="translate(${num(no.x, p)} ${num(no.y, p)}) scale(${num(escala, 6)})">` +
-    `<path fill="${no.dark.rgb}" d="${caminho}"/>` +
-    `</g>`
-  );
+  const forma = no.forma ?? 'quadrado';
+
+  /*
+   * Caminho unico enquanto der. Com modulo quadrado e marcador da mesma cor,
+   * o codigo inteiro sai como UM objeto no Illustrator — que e o argumento de
+   * "editavel" do produto. So quando a forma tem curva ou o marcador tem cor
+   * propria e que o desenho se divide em caminhos por tinta.
+   */
+  if (forma === 'quadrado' && no.olhos === undefined) {
+    return placa + grupo + `<path fill="${no.dark.rgb}" d="${caminhoDosModulos(no.artifact)}"/>` + `</g>`;
+  }
+
+  const tintas: Record<Tinta, Paint> = {
+    escuro: no.dark,
+    claro: no.light,
+    olhos: no.olhos ?? no.dark,
+  };
+
+  /*
+   * `geometricPrecision` local: a raiz pede `crispEdges`, que serve ao modulo
+   * quadrado e as molduras, mas serrilha circulo e canto arredondado.
+   */
+  const caminhos = camadasDasPrimitivas(primitivasDoCodigo(no.artifact, forma))
+    .map(
+      (camada) =>
+        `<path fill="${tintas[camada.tinta].rgb}" shape-rendering="geometricPrecision" d="${camada.caminho}"/>`,
+    )
+    .join('');
+
+  return placa + grupo + caminhos + `</g>`;
 }
 
 /**

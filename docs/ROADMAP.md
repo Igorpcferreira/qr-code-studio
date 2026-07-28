@@ -23,6 +23,12 @@ volta, o BR Code é remontado a partir do TLV e o CRC-16 é conferido.
 CSV → muitos QRs → ZIP, num Web Worker com progresso e verificação por linha. Histórico local em
 IndexedDB, com a configuração inteira restaurável.
 
+## ~~Forma e cor dos módulos~~ CONCLUÍDA
+
+Cinco formas — clássico, arredondado, pontos, losango e circuito — como lista de primitivas em
+unidades de módulo, consumida pelos quatro renderizadores. Paletas prontas e cor própria para os
+marcadores de canto. A verificação de leitura ganhou o experimento que isola a forma como causa.
+
 ---
 
 ## O que faria sentido depois

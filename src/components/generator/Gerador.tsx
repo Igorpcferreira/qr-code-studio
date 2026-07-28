@@ -20,6 +20,7 @@ import { ESTADO_INICIAL, reducer } from '@/state/reducer';
 import { FichaTecnica } from './FichaTecnica';
 import { PainelConteudo } from './PainelConteudo';
 import { PainelCor } from './PainelCor';
+import { PainelForma } from './PainelForma';
 import { PainelHistorico } from './PainelHistorico';
 import { PainelExportacao } from './PainelExportacao';
 import { PainelLogo } from './PainelLogo';
@@ -176,12 +177,18 @@ export function Gerador() {
             onDpi={(valor) => despachar({ tipo: 'dpi', valor })}
           />
 
+          <PainelForma forma={estado.forma} onForma={(valor) => despachar({ tipo: 'forma', valor })} />
+
           <PainelCor
             corEscura={estado.corEscura}
             corClara={estado.corClara}
+            corOlhos={estado.corOlhos}
             contraste={derivado.contraste}
+            contrasteOlhos={derivado.contrasteOlhos}
             onCorEscura={(valor) => despachar({ tipo: 'cor-escura', valor })}
             onCorClara={(valor) => despachar({ tipo: 'cor-clara', valor })}
+            onCorOlhos={(valor) => despachar({ tipo: 'cor-olhos', valor })}
+            onPaleta={(escura, clara) => despachar({ tipo: 'paleta', escura, clara })}
             onInverter={() => despachar({ tipo: 'inverter-cores' })}
           />
 

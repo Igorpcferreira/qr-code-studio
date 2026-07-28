@@ -3,6 +3,8 @@ import { FORMULARIOS_INICIAIS } from '@/core/content/tipos';
 import type { IdMoldura } from '@/core/frames/tipos';
 import { normalizarChamada } from '@/core/frames/tipos';
 import type { ErrorCorrection } from '@/core/qr/types';
+import type { FormaModulo } from '@/core/render/formas';
+import { FORMA_PADRAO } from '@/core/render/formas';
 import type { Dpi, Unidade } from '@/lib/units';
 import { DPI_PADRAO, converter } from '@/lib/units';
 
@@ -36,6 +38,15 @@ export interface EstadoGerador {
   readonly dpi: Dpi;
   readonly corEscura: string;
   readonly corClara: string;
+  readonly forma: FormaModulo;
+  /**
+   * Cor dos três marcadores de localização.
+   *
+   * `null` significa "a mesma dos módulos", e não uma cor concreta igual à
+   * escura: assim trocar a cor do módulo continua arrastando o marcador junto
+   * para quem nunca abriu essa opção.
+   */
+  readonly corOlhos: string | null;
   readonly logo: LogoSelecionado | null;
 
   readonly moldura: IdMoldura;
@@ -56,6 +67,8 @@ export const ESTADO_INICIAL: EstadoGerador = {
   dpi: DPI_PADRAO,
   corEscura: '#0e0f14',
   corClara: '#ffffff',
+  forma: FORMA_PADRAO,
+  corOlhos: null,
   logo: null,
   moldura: 'nenhuma',
   chamada: 'ESCANEIE-ME',
@@ -67,6 +80,26 @@ export const ESTADO_INICIAL: EstadoGerador = {
 
 /** As quatro chamadas prontas do brand board. */
 export const CHAMADAS_SUGERIDAS = ['ESCANEIE-ME', 'APONTE A CÂMERA', 'VER REGISTRO', 'MENU DIGITAL'] as const;
+
+/**
+ * Pares de cor prontos para o código.
+ *
+ * Todos escuros sobre claro, sem exceção — inclusive o de placa eletrônica,
+ * que o olho pediria invertido. É a regra do board e é regra de leitura:
+ * scanner com `dontInvert` recusa código claro sobre fundo escuro, e a
+ * verificação desta casa reprovaria o par antes de o usuário exportar.
+ *
+ * Nenhum deles fica abaixo de 4:1; o painel de contraste continua medindo e
+ * mandando, porque cor personalizada não passa por aqui.
+ */
+export const PALETAS = [
+  { nome: 'Carbon', escura: '#0e0f14', clara: '#ffffff' },
+  { nome: 'Ultramarine', escura: '#2c36f0', clara: '#ffffff' },
+  { nome: 'Verde placa', escura: '#0a3d2e', clara: '#e8f2ea' },
+  { nome: 'Cobre', escura: '#5e3116', clara: '#fdf4ec' },
+  { nome: 'Petróleo', escura: '#0b3b4a', clara: '#f0fafd' },
+  { nome: 'Vinho', escura: '#5a0f24', clara: '#fdf1f4' },
+] as const;
 
 /** As três cores de moldura do board. Um acento só, sem decorativa. */
 export const CORES_MOLDURA = [
@@ -101,6 +134,9 @@ export type AcaoGerador =
   | { readonly tipo: 'cor-escura'; readonly valor: string }
   | { readonly tipo: 'cor-clara'; readonly valor: string }
   | { readonly tipo: 'inverter-cores' }
+  | { readonly tipo: 'paleta'; readonly escura: string; readonly clara: string }
+  | { readonly tipo: 'forma'; readonly valor: FormaModulo }
+  | { readonly tipo: 'cor-olhos'; readonly valor: string | null }
   | { readonly tipo: 'logo'; readonly valor: LogoSelecionado | null }
   | { readonly tipo: 'logo-tamanho'; readonly valor: number }
   | { readonly tipo: 'moldura'; readonly valor: IdMoldura }
@@ -175,6 +211,15 @@ export function reducer(estado: EstadoGerador, acao: AcaoGerador): EstadoGerador
 
     case 'inverter-cores':
       return { ...estado, corEscura: estado.corClara, corClara: estado.corEscura };
+
+    case 'paleta':
+      return { ...estado, corEscura: acao.escura, corClara: acao.clara };
+
+    case 'forma':
+      return { ...estado, forma: acao.valor };
+
+    case 'cor-olhos':
+      return { ...estado, corOlhos: acao.valor };
 
     case 'logo':
       return { ...estado, logo: acao.valor };

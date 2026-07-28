@@ -20,7 +20,8 @@ import { PX_POR_MODULO_VERIFICACAO, decodificadorJsQr, escalaParaVerificacao } f
  * Cada tentativa custa poucos milissegundos.
  */
 
-export type TipoCausa = 'polaridade' | 'logo' | 'contraste' | 'densidade' | 'correcao' | 'desconhecida';
+export type TipoCausa =
+  'polaridade' | 'logo' | 'contraste' | 'forma' | 'densidade' | 'correcao' | 'desconhecida';
 
 export interface Causa {
   readonly tipo: TipoCausa;
@@ -98,6 +99,24 @@ function cenaDeLeitura(cena: Scene, codigo: QrNode): Scene {
 
 function semLogo(cena: Scene): Scene {
   return { ...cena, nodes: cena.nodes.filter((no) => no.kind !== 'image') };
+}
+
+/**
+ * Devolve o codigo a forma do padrao ISO, marcadores inclusive.
+ *
+ * E o experimento que isola a forma: se o mesmo conteudo, no mesmo tamanho e
+ * com as mesmas cores, volta a ler com modulo quadrado, entao quem derrubou a
+ * leitura foi a estilizacao — e nao ha o que discutir sobre isso.
+ */
+function comFormaPadrao(cena: Scene): Scene {
+  return {
+    ...cena,
+    nodes: cena.nodes.map((no) => {
+      if (no.kind !== 'qr') return no;
+      const { forma: _forma, olhos: _olhos, ...resto } = no;
+      return resto;
+    }),
+  };
 }
 
 function comCoresPadrao(cena: Scene): Scene {
@@ -203,6 +222,18 @@ function diagnosticar(
       confirmada: true,
       mensagem: `Com as cores padrão o código lê; com as suas, não. O contraste de ${contraste.razao.toFixed(1).replace('.', ',')}:1 não é suficiente.`,
       sugestao: 'Escureça o módulo escuro ou clareie o fundo até passar de 4:1.',
+    };
+  }
+
+  const estilizado = (codigo.forma ?? 'quadrado') !== 'quadrado' || codigo.olhos !== undefined;
+  if (estilizado && tentar(comFormaPadrao(cena), escala, opcoes) === esperado) {
+    return {
+      tipo: 'forma',
+      confirmada: true,
+      mensagem:
+        'Com módulos quadrados o código lê; com a forma escolhida, não. A estilização comeu tinta demais.',
+      sugestao:
+        'Volte a forma para Clássico, ou aumente o lado do código — as formas soltas precisam de mais milímetros por módulo.',
     };
   }
 

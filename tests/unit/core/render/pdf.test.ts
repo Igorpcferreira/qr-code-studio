@@ -215,6 +215,36 @@ describe('geometria do código', () => {
     ).toEqual([]);
   });
 
+  /**
+   * As formas com curva não saem como retângulo — saem como caminho, o MESMO
+   * que o SVG entrega. O que este teste protege é a transformação: o
+   * `drawSvgPath` do pdf-lib inverte o eixo y e aplica a escala, e um erro aí
+   * produziria um código espelhado ou fora da placa, que nenhum outro teste
+   * pegaria porque a matriz continuaria correta.
+   */
+  it('a forma com curva sai como caminho vetorial, na escala e dentro da placa', async () => {
+    const a = artefato();
+    const conteudo = fluxos(await renderizarPdf(construirCenaBasica(a, LADO, { forma: 'circuito' })));
+
+    const bezieres = [...conteudo.matchAll(/^(-?[\d.]+(?: -?[\d.]+){5}) c$/gm)];
+    expect(bezieres.length).toBeGreaterThan(0);
+
+    // Escala: um módulo em pontos, com o y invertido para o sistema do PDF.
+    const passo = (LADO * PT) / a.sizeComQuietZone;
+    // Só as matrizes de escala com y invertido; `1 0 0 1 0 0 cm` é translação.
+    const escalas = [...conteudo.matchAll(/^([\d.]+) 0 0 (-[\d.]+) 0 0 cm$/gm)];
+    expect(escalas.length).toBeGreaterThan(0);
+    for (const [, sx, sy] of escalas) {
+      expect(Number(sx)).toBeCloseTo(passo, 4);
+      expect(Number(sy)).toBeCloseTo(-passo, 4);
+    }
+
+    // As coordenadas do caminho são módulos: nenhuma pode escapar da placa.
+    const coordenadas = bezieres.flatMap((m) => (m[1] ?? '').split(' ').map(Number));
+    expect(Math.min(...coordenadas)).toBeGreaterThanOrEqual(0);
+    expect(Math.max(...coordenadas)).toBeLessThanOrEqual(a.sizeComQuietZone);
+  });
+
   it('mescla runs horizontais, como o SVG', async () => {
     const a = artefato();
     const rects = retangulos(fluxos(await renderizarPdf(construirCenaBasica(a, LADO))));

@@ -63,7 +63,22 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="pt-BR" className={`${archivo.variable} ${plexSans.variable} ${plexMono.variable}`}>
+    /*
+     * `suppressHydrationWarning` só aqui, e só por causa do script de tema
+     * abaixo: ele grava `data-theme` no `<html>` antes da hidratação, e o
+     * servidor não tem como saber a preferência que está no navegador de quem
+     * pede a página. O atributo divergir é o comportamento correto, não um
+     * defeito — sem ele a página piscaria no tema errado.
+     *
+     * A supressão vale para os atributos deste elemento e nada mais: não desce
+     * um nível sequer da árvore, então nenhuma divergência real dentro da
+     * aplicação passa a ser escondida por causa disto.
+     */
+    <html
+      lang="pt-BR"
+      className={`${archivo.variable} ${plexSans.variable} ${plexMono.variable}`}
+      suppressHydrationWarning
+    >
       <head>
         {/*
          * Aplica o tema escolhido antes da primeira pintura. Precisa ser

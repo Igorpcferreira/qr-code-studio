@@ -1,4 +1,5 @@
 import type { QrArtifact } from '../qr/types';
+import type { FormaModulo } from '../render/formas';
 
 /**
  * A display list que separa composicao de desenho.
@@ -58,6 +59,19 @@ export interface QrNode {
   readonly artifact: QrArtifact;
   readonly dark: Paint;
   readonly light: Paint;
+  /**
+   * Forma dos modulos. Ausente e `'quadrado'` sao a mesma coisa — a forma do
+   * padrao ISO continua sendo o default de quem nao pediu nada.
+   */
+  readonly forma?: FormaModulo;
+  /**
+   * Cor dos tres marcadores de localizacao. Ausente: mesma cor dos modulos.
+   *
+   * Fica no no, e nao numa camada por cima, porque o rasterizador da
+   * verificacao precisa enxergar exatamente a cor que sera impressa: marcador
+   * claro demais derruba a deteccao antes de a correcao de erro entrar.
+   */
+  readonly olhos?: Paint;
 }
 
 export interface TextNode {

@@ -30,8 +30,25 @@ export function alturaFicha(lado: number): number {
   return lado * FICHA * 3.4;
 }
 
+/**
+ * O código posicionado.
+ *
+ * Forma e cor dos marcadores atravessam as catorze molduras por aqui, e é o
+ * ponto: nenhuma delas precisou aprender o que é um losango ou uma trilha de
+ * circuito — elas colocam o nó, e o renderizador desenha.
+ */
 export function noCodigo(o: OpcoesMoldura, x: number, y: number, lado = o.ladoCodigoMm): SceneNode {
-  return { kind: 'qr', x, y, side: lado, artifact: o.artefato, dark: o.dark, light: o.light };
+  return {
+    kind: 'qr',
+    x,
+    y,
+    side: lado,
+    artifact: o.artefato,
+    dark: o.dark,
+    light: o.light,
+    ...(o.forma === undefined ? {} : { forma: o.forma }),
+    ...(o.olhos === undefined ? {} : { olhos: o.olhos }),
+  };
 }
 
 /** Logo central, se houver, posicionado sobre um código já colocado. */

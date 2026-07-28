@@ -1,4 +1,5 @@
 import type { QrArtifact } from '../qr/types';
+import type { FormaModulo } from '../render/formas';
 import type { Paint, Scene } from '../scene/types';
 
 /**
@@ -41,6 +42,10 @@ export interface OpcoesMoldura {
   readonly ladoCodigoMm: number;
   readonly dark: Paint;
   readonly light: Paint;
+  /** Forma dos módulos. Ausente: quadrado, a forma do padrão. */
+  readonly forma?: FormaModulo;
+  /** Cor dos marcadores de localização. Ausente: a mesma dos módulos. */
+  readonly olhos?: Paint;
   /** Cor da moldura: Carbon, Ultramarine ou Steel, conforme o board. */
   readonly corMoldura: Paint;
   /** Chamada de ação. Impressa, nunca codificada. */
