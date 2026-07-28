@@ -32,6 +32,14 @@ export interface Derivado {
   readonly artefato: QrArtifact | null;
   readonly cena: Scene | null;
   readonly contraste: VeredictoContraste;
+  /**
+   * Contraste dos marcadores, só quando eles têm cor própria.
+   *
+   * Medido à parte porque o marcador falha antes do resto: ele é o que o
+   * detector procura para achar o código. Um marcador de baixo contraste
+   * derruba a leitura mesmo com todos os módulos perfeitos.
+   */
+  readonly contrasteOlhos: VeredictoContraste | null;
   readonly impressao: AvaliacaoImpressao | null;
   readonly logo: VeredictoLogo | null;
   /** Lado do logo em mm, quando há logo. */
@@ -51,6 +59,7 @@ export function derivar(estado: EstadoGerador): Derivado {
   const conteudo = montarConteudo(estado.tipoConteudo, estado.formularios);
   const resultado = criarArtefato(conteudo.payload, estado.nivel);
   const contraste = avaliarContraste(estado.corEscura, estado.corClara);
+  const contrasteOlhos = estado.corOlhos === null ? null : avaliarContraste(estado.corOlhos, estado.corClara);
 
   const brCode =
     estado.tipoConteudo === 'pix' && conteudo.payload.length > 0 ? conferirBrCode(conteudo.payload) : null;
@@ -63,6 +72,7 @@ export function derivar(estado: EstadoGerador): Derivado {
       artefato: null,
       cena: null,
       contraste,
+      contrasteOlhos,
       impressao: null,
       logo: null,
       ladoLogoMm: null,
@@ -89,6 +99,8 @@ export function derivar(estado: EstadoGerador): Derivado {
     ladoCodigoMm: lado,
     dark: paint(estado.corEscura),
     light: paint(estado.corClara),
+    forma: estado.forma,
+    ...(estado.corOlhos === null ? {} : { olhos: paint(estado.corOlhos) }),
     corMoldura: paint(estado.corMoldura),
     chamada: estado.chamada,
     logo:
@@ -104,6 +116,7 @@ export function derivar(estado: EstadoGerador): Derivado {
     artefato,
     cena,
     contraste,
+    contrasteOlhos,
     impressao: avaliarImpressao({
       ladoMm: lado,
       modulosComQuietZone: artefato.sizeComQuietZone,

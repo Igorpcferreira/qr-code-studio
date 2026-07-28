@@ -56,7 +56,10 @@ sustentável de verdade.
 - **Três saídas:** SVG e PDF vetoriais e PNG raster, todas geradas no navegador, com opções de
   gráfica — A4/Carta/Etiqueta, marcas de corte, sangria de 3 mm e preto 100% K.
 - **14 molduras de impressão**, de rótulo simples a grade recortável e display de mesa.
-- **Personalização** com indicador de contraste e logo central, com o teto de área medido.
+- **5 formas de módulo** — clássico, arredondado, pontos, losango e **circuito**, com trilhas, pads e
+  vias de placa eletrônica. Cada forma é verificada por decodificação antes de existir.
+- **Personalização** com paletas prontas, cor própria para os marcadores de canto, indicador de
+  contraste e logo central, com o teto de área medido.
 - **Lote por CSV:** uma planilha vira centenas de códigos num ZIP, cada um verificado antes de
   entrar no pacote.
 - **Histórico local** em IndexedDB, com a configuração inteira — cor, moldura, logo — restaurável
@@ -203,6 +206,12 @@ que precisariam concordar pixel a pixel. Com uma `Scene` intermediária em milí
 escrita **uma vez** como função pura e os renderers viram um `switch` sem regra de negócio. A
 divergência entre formatos deixa de ser um risco a mitigar: some por construção.
 
+**Forma de módulo como lista de primitivas, não como desenho por renderer.** Cinco formas × quatro
+saídas (SVG, Canvas, PDF e o rasterizador da verificação) seriam vinte implementações — e a que
+divergisse seria justamente a da verificação, que é quem diz ao usuário se o código lê. Em vez
+disso, cada forma produz retângulos com raio, círculos e polígonos em unidades de módulo; o SVG e o
+PDF consomem o **mesmo** caminho, e o rasterizador testa os mesmos limites ponto a ponto.
+
 **Entre conteúdo e código passa só uma string.** Um QR carrega texto; o que faz a câmera abrir a
 rede Wi-Fi é a convenção de formato dentro desse texto. Por isso os nove tipos moram num diretório
 só, e o décimo não tocará em nenhum renderer, na verificação nem no lote.
@@ -226,6 +235,10 @@ Detalhes em [`docs/ARQUITETURA.md`](docs/ARQUITETURA.md).
 
 - **Ida e volta** — gerar, compor, rasterizar, decodificar e comparar com a entrada, nos quatro
   níveis de correção, nas 14 molduras e nos nove tipos de conteúdo.
+- **Centro do módulo em todas as formas** — para cada uma das cinco formas, o centro de cada módulo
+  e a vizinhança de 0,15 módulo ao redor dele são conferidos um a um. É onde o decodificador
+  amostra: uma forma pode encolher e arredondar a tinta, nunca deslocar o centro. Foi esse teste que
+  fixou o teto de arredondamento dos marcadores em 1,05 módulo.
 - **Equivalência do merge** — o `<path>` mesclado cobre exatamente os mesmos módulos que um retângulo
   por módulo, verificado por comparação de conjuntos e por rasterização contra uma segunda
   implementação.

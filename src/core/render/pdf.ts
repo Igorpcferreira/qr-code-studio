@@ -4,6 +4,8 @@ import { PDFDocument, cmyk, rgb } from 'pdf-lib';
 import { SELO_PERMANENCIA } from '@/lib/site';
 import type { Paint, QrNode, Scene, SceneNode, TextNode } from '../scene/types';
 import { hexParaRgb } from '@/lib/contrast';
+import type { Tinta } from './formas';
+import { camadasDasPrimitivas, primitivasDoCodigo } from './formas';
 import { ARCHIVO_EXTRABOLD, PLEX_MONO_MEDIUM } from './pdf-fontes';
 
 /**
@@ -124,6 +126,26 @@ function desenharCodigo(pagina: PDFPage, no: QrNode, x: number, yTopo: number, p
   });
 
   const escuro = corPdf(no.dark, pretoK);
+
+  const forma = no.forma ?? 'quadrado';
+  if (forma !== 'quadrado' || no.olhos !== undefined) {
+    /*
+     * Formas com curva saem como caminho, e é o MESMO caminho do SVG: o
+     * `drawSvgPath` do pdf-lib translada para (x, y) e inverte o eixo y, que é
+     * exatamente a diferença entre a cena e o PDF. Só reta e Bézier cúbica no
+     * caminho — o arco elíptico é onde os interpretadores divergem.
+     */
+    const tintas: Record<Tinta, ReturnType<typeof corPdf>> = {
+      escuro,
+      claro: corPdf(no.light, pretoK),
+      olhos: corPdf(no.olhos ?? no.dark, pretoK),
+    };
+
+    for (const camada of camadasDasPrimitivas(primitivasDoCodigo(a, forma))) {
+      pagina.drawSvgPath(camada.caminho, { x, y: yTopo, scale: passo, color: tintas[camada.tinta] });
+    }
+    return;
+  }
 
   for (let linha = 0; linha < a.size; linha++) {
     let coluna = 0;

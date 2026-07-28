@@ -108,6 +108,22 @@ describe('reducer', () => {
     expect(e.corClara).toBe('#111111');
   });
 
+  it('a paleta troca o par de cores de uma vez', () => {
+    const e = reducer(ESTADO_INICIAL, { tipo: 'paleta', escura: '#0a3d2e', clara: '#e8f2ea' });
+    expect(e.corEscura).toBe('#0a3d2e');
+    expect(e.corClara).toBe('#e8f2ea');
+  });
+
+  /**
+   * `null` não é uma cor: é "acompanhe o módulo escuro". Guardar a cor concreta
+   * faria o marcador congelar quando o usuário trocasse a cor dos módulos.
+   */
+  it('a cor dos marcadores volta a acompanhar os módulos quando zerada', () => {
+    const proprio = reducer(ESTADO_INICIAL, { tipo: 'cor-olhos', valor: '#2c36f0' });
+    expect(proprio.corOlhos).toBe('#2c36f0');
+    expect(reducer(proprio, { tipo: 'cor-olhos', valor: null }).corOlhos).toBeNull();
+  });
+
   it('limpar zera o artefato mas preserva as preferências de saída', () => {
     const configurado: EstadoGerador = { ...COM_LOGO, lado: 50, unidade: 'mm', dpi: 600, nivel: 'H' };
     const limpo = reducer(configurado, { tipo: 'limpar' });
@@ -165,6 +181,25 @@ describe('derivar', () => {
     const no = d.cena?.nodes.find((n) => n.kind === 'qr');
     expect(no?.kind === 'qr' ? no.dark.rgb : null).toBe('#141c99');
     expect(no?.kind === 'qr' ? no.light.rgb : null).toBe('#f3f4f7');
+  });
+
+  it('leva forma e cor dos marcadores até o nó do código', () => {
+    const d = derivar(comUrl('https://exemplo.com', { forma: 'circuito', corOlhos: '#2c36f0' }));
+    const no = d.cena?.nodes.find((n) => n.kind === 'qr');
+    expect(no?.kind === 'qr' ? no.forma : null).toBe('circuito');
+    expect(no?.kind === 'qr' ? no.olhos?.rgb : null).toBe('#2c36f0');
+  });
+
+  /**
+   * Sem cor própria o marcador não vira uma cor fixa igual à escura: o campo
+   * fica ausente, e é o renderizador que resolve para a cor dos módulos. Assim
+   * trocar a cor do código continua arrastando o marcador junto.
+   */
+  it('sem cor própria o marcador não entra no nó', () => {
+    const d = derivar(comUrl('https://exemplo.com', { corEscura: '#141c99' }));
+    const no = d.cena?.nodes.find((n) => n.kind === 'qr');
+    expect(no?.kind === 'qr' ? no.olhos : 'ausente').toBeUndefined();
+    expect(d.contrasteOlhos).toBeNull();
   });
 
   it('centraliza o logo e avalia o limite', () => {

@@ -151,6 +151,63 @@ test.describe('molduras', () => {
   });
 });
 
+test.describe('forma e cor dos módulos', () => {
+  /**
+   * A forma é a personalização que pode quebrar a leitura sem estragar nada
+   * que se veja. Por isso o teste não confere aparência: confere que o código
+   * estilizado passa pela verificação **no navegador**, com o mesmo desenho que
+   * vai para o arquivo.
+   */
+  test('a forma de circuito é aplicada e o código continua sendo lido', async ({ page }) => {
+    await page.goto('/');
+    await page.getByLabel('Endereço a codificar').fill(URL_EXEMPLO);
+    await expect(page.getByText('Leitura confirmada')).toBeVisible({ timeout: 15_000 });
+
+    const previa = page.getByRole('img', { name: /QR Code que codifica/ });
+    // Clássico: o código inteiro sai como um objeto só.
+    await expect(previa.locator('path')).toHaveCount(1);
+
+    await page.getByRole('button', { name: 'Circuito' }).click();
+
+    // Estilizado: anel, vazado e miolo dos marcadores, mais os módulos.
+    await expect(previa.locator('path')).toHaveCount(4);
+    await expect(page.getByText('Leitura confirmada')).toBeVisible({ timeout: 15_000 });
+  });
+
+  test('a paleta troca o par de cores e os marcadores aceitam cor própria', async ({ page }) => {
+    await page.goto('/');
+    await page.getByLabel('Endereço a codificar').fill(URL_EXEMPLO);
+    await expect(page.getByText('Leitura confirmada')).toBeVisible({ timeout: 15_000 });
+
+    await page.getByRole('button', { name: 'Verde placa' }).click();
+    await expect(page.getByLabel('Módulo escuro')).toHaveValue('#0a3d2e');
+    await expect(page.getByLabel('Módulo claro')).toHaveValue('#e8f2ea');
+
+    await page.getByRole('button', { name: 'Cor própria' }).click();
+    await page.getByLabel('Marcadores de canto').fill('#2c36f0');
+
+    await expect(page.getByText(/Contraste dos marcadores/)).toBeVisible();
+    await expect(page.getByText('Leitura confirmada')).toBeVisible({ timeout: 15_000 });
+  });
+
+  /**
+   * O caso que a verificação existe para pegar: marcador claro demais. Os
+   * módulos continuam perfeitos, o contraste deles não muda, e o detector
+   * simplesmente não acha o código.
+   */
+  test('marcador sem contraste é diagnosticado e bloqueia a exportação', async ({ page }) => {
+    await page.goto('/');
+    await page.getByLabel('Endereço a codificar').fill(URL_EXEMPLO);
+    await expect(page.getByText('Leitura confirmada')).toBeVisible({ timeout: 15_000 });
+
+    await page.getByRole('button', { name: 'Cor própria' }).click();
+    await page.getByLabel('Marcadores de canto').fill('#eeeeee');
+
+    await expect(page.getByText('Este código pode não ser lido')).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole('button', { name: /Baixar SVG/ })).toBeDisabled();
+  });
+});
+
 test.describe('exportação em PDF', () => {
   test('o PDF é gerado no navegador, sem nenhuma requisição de rede', async ({ page }) => {
     const externas: string[] = [];

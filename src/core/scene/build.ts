@@ -1,4 +1,5 @@
 import type { QrArtifact } from '../qr/types';
+import type { FormaModulo } from '../render/formas';
 import type { Paint, Scene, SceneMeta } from './types';
 import { paint } from './types';
 
@@ -15,6 +16,9 @@ export const MODULO_CLARO_PADRAO: Paint = paint('#ffffff', [0, 0, 0, 0]);
 export interface EstiloCodigo {
   readonly dark?: Paint;
   readonly light?: Paint;
+  readonly forma?: FormaModulo;
+  /** Cor dos marcadores de localizacao. Ausente: a mesma dos modulos. */
+  readonly olhos?: Paint;
 }
 
 export function metaDoArtefato(artefato: QrArtifact): SceneMeta {
@@ -51,7 +55,19 @@ export function construirCenaBasica(artefato: QrArtifact, ladoMm: number, estilo
     // O fundo da cena e o proprio modulo claro: a quiet zone precisa ser da
     // mesma cor dos modulos claros, senao deixa de funcionar como quiet zone.
     background: light,
-    nodes: [{ kind: 'qr', x: 0, y: 0, side: ladoMm, artifact: artefato, dark, light }],
+    nodes: [
+      {
+        kind: 'qr',
+        x: 0,
+        y: 0,
+        side: ladoMm,
+        artifact: artefato,
+        dark,
+        light,
+        ...(estilo.forma === undefined ? {} : { forma: estilo.forma }),
+        ...(estilo.olhos === undefined ? {} : { olhos: estilo.olhos }),
+      },
+    ],
     meta: metaDoArtefato(artefato),
   };
 }

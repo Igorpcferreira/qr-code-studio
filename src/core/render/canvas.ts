@@ -1,4 +1,6 @@
 import type { Scene, SceneNode, TextNode } from '../scene/types';
+import type { Tinta } from './formas';
+import { camadasDasPrimitivas, primitivasDoCodigo } from './formas';
 import { rasterizarCena } from './raster';
 
 /**
@@ -50,6 +52,30 @@ function desenharNo(ctx: Contexto2D, no: SceneNode, k: number): void {
 
       ctx.fillStyle = no.light.rgb;
       ctx.fillRect(no.x * k, no.y * k, ladoPx, ladoPx);
+
+      const forma = no.forma ?? 'quadrado';
+      if (forma !== 'quadrado' || no.olhos !== undefined) {
+        /*
+         * Mesmo caminho que o SVG entrega ao usuario, desenhado aqui via
+         * `Path2D`. Reaproveitar a string e o que garante que a previa na tela
+         * e o arquivo baixado nao sejam dois desenhos parecidos.
+         */
+        const tintas: Record<Tinta, string> = {
+          escuro: no.dark.rgb,
+          claro: no.light.rgb,
+          olhos: (no.olhos ?? no.dark).rgb,
+        };
+
+        ctx.save();
+        ctx.translate(no.x * k, no.y * k);
+        ctx.scale(passo, passo);
+        for (const camada of camadasDasPrimitivas(primitivasDoCodigo(artefato, forma))) {
+          ctx.fillStyle = tintas[camada.tinta];
+          ctx.fill(new Path2D(camada.caminho));
+        }
+        ctx.restore();
+        break;
+      }
 
       ctx.fillStyle = no.dark.rgb;
       const bordaX = (i: number): number => Math.round(no.x * k + (i + q) * passo);

@@ -53,7 +53,7 @@ conhecimento de QR nem de formato:
 ```ts
 type SceneNode =
   | { kind: 'rect'; x; y; w; h; fill?; stroke?; strokeWidth? }
-  | { kind: 'qr'; x; y; side; artifact; dark; light }
+  | { kind: 'qr'; x; y; side; artifact; dark; light; forma?; olhos? }
   | { kind: 'text'; x; y; text; font; size; weight; tracking; align; fill; rotate? }
   | { kind: 'image'; x; y; w; h; href };
 ```
@@ -73,6 +73,45 @@ O plano original guardava o caminho já resolvido. Com ele pronto, o rasterizado
 interpretador completo de SVG path para poder verificar a leitura — justamente a feature que
 sustenta o produto. Guardando o artefato, cada renderer resolve como lhe convém: o SVG emite um
 `<path>` único, o rasterizador percorre módulos, o PDF desenha retângulos.
+
+### Forma dos módulos: primitivas, não desenho por renderer
+
+`core/render/formas.ts` estende a mesma ideia um nível abaixo. São 5 formas × 4 consumidores (SVG,
+Canvas, PDF e o rasterizador puro) — 20 implementações que precisariam concordar, e a que
+divergisse seria a da verificação, que é quem responde ao usuário se o código lê.
+
+A forma produz uma lista de primitivas **em unidades de módulo**, com a quiet zone já somada:
+
+```ts
+type Primitiva =
+  | { tipo: 'rect'; x; y; w; h; raios?; tinta }
+  | { tipo: 'circulo'; cx; cy; raio; tinta }
+  | { tipo: 'poligono'; pontos; tinta };
+```
+
+Cada consumidor lê a mesma lista: SVG e PDF pelo **mesmo** caminho (`camadasDasPrimitivas`), o
+Canvas pelo mesmo caminho via `Path2D`, e o rasterizador por `contemPonto`, teste analítico por
+pixel. Três primitivas bastam para as cinco formas, e nenhuma delas exige interpretador de caminho
+— que é o que mantém o rasterizador puro e rodando no Node.
+
+Duas regras não negociáveis, ambas de leitura e não de estética:
+
+- **O centro do módulo manda.** É onde o decodificador amostra. Uma forma pode encolher, arredondar
+  e ligar módulos vizinhos; não pode deslocar nem descobrir o centro. O teste confere o centro e a
+  vizinhança de 0,15 módulo, para cada módulo, em cada forma.
+- **O marcador de localização continua sólido.** O detector procura a razão 1:1:3:1:1 varrendo
+  linhas retas sobre ele. Arredondar o contorno preserva a razão; trocá-lo por círculos soltos a
+  destrói. O raio do canto tem teto calculado: acima de 1,707 módulo o arco descobre o centro do
+  módulo de canto, e com a folga exigida o teto cai para 1,19 — daí o 1,05 usado.
+
+A tinta `claro` existe porque o miolo do marcador é vazado: anel cheio, retângulo claro por dentro,
+miolo por cima. Vazar de verdade exigiria regra par-ímpar, que PDF e rasterizador tratariam
+diferente. Por isso `camadasDasPrimitivas` preserva a **ordem de pintura** em vez de agrupar por
+cor — agrupar por cor devolveria o anel por cima do vazado, e os três marcadores sairiam sólidos.
+
+Quando a forma é a clássica e os marcadores não têm cor própria, todos os renderers seguem pelo
+caminho antigo, com fusão de runs: o SVG continua saindo como **um único objeto** e o PDF como
+retângulos legíveis pelo teste de geometria.
 
 ### Milímetro, não pixel
 
@@ -146,8 +185,14 @@ molduras que repetem o código — grade recortável e display de mesa — apres
 de padrões de localização na mesma imagem, e o decodificador não sabe qual seguir.
 
 Quando falha, o diagnóstico vem de **experimentos controlados**, não de heurística: remove o
-logo, devolve as cores ao padrão, aumenta a escala. O primeiro que faz o código voltar a ler é a
-causa isolada por eliminação, e o veredito carrega `confirmada: true`.
+logo, devolve as cores ao padrão, devolve os módulos à forma quadrada, aumenta a escala. O
+primeiro que faz o código voltar a ler é a causa isolada por eliminação, e o veredito carrega
+`confirmada: true`.
+
+A forma do módulo entrou nessa lista pelo mesmo motivo que o logo: é personalização capaz de
+quebrar a leitura sem estragar nada que se veja. Se o mesmo conteúdo, no mesmo tamanho e com as
+mesmas cores, volta a ler com módulo quadrado, então quem derrubou foi a estilização — e não há o
+que discutir sobre isso.
 
 Polaridade invertida é checada antes de tudo, sem experimento: inverter as duas cores mantém a
 razão de contraste idêntica, então nenhum teste de cor a distinguiria. O decodificador roda com
@@ -276,7 +321,11 @@ Regras de coerência moram no reducer, e existem para impedir arquivo quebrado:
 - **Trocar de unidade preserva o tamanho físico**; trocar o DPI em pixels reconverte o lado, para
   o tamanho impresso não mudar sem o usuário pedir.
 - **Restaurar do histórico substitui o estado inteiro**, sem merge: um registro é uma configuração
-  que já funcionou, e misturá-la com a atual produziria uma terceira que ninguém verificou.
+  que já funcionou, e misturá-la com a atual produziria uma terceira que ninguém verificou. As
+  chaves ausentes ganham o padrão, e é por isso que um registro gravado antes das formas continua
+  restaurável — ele volta como clássico.
+- **`corOlhos: null` não é uma cor**, é "acompanhe o módulo escuro". Guardar a cor concreta faria o
+  marcador congelar quando o usuário trocasse a cor dos módulos.
 
 ---
 

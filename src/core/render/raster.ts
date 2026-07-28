@@ -1,5 +1,7 @@
 import { hexParaRgb } from '@/lib/contrast';
 import type { Paint, QrNode, RectNode, Scene, SceneNode } from '../scene/types';
+import type { Primitiva, Tinta } from './formas';
+import { contemPonto, limitesDaPrimitiva, primitivasDoCodigo } from './formas';
 
 /**
  * Rasterizador puro: cena em milimetros -> pixels RGBA, sem DOM.
@@ -76,6 +78,43 @@ function desenharRect(alvo: Bitmap, no: RectNode, k: number): void {
   }
 }
 
+/**
+ * Pinta uma primitiva de forma testando o centro de cada pixel.
+ *
+ * Sem antialias, de proposito: e o que o decodificador enxerga depois de
+ * binarizar, e um pixel meio pintado na borda de um circulo nao muda o modulo
+ * que o scanner amostra. Antialias aqui daria uma imagem mais bonita e uma
+ * verificacao menos fiel.
+ */
+function pintarPrimitiva(
+  alvo: Bitmap,
+  p: Primitiva,
+  origemX: number,
+  origemY: number,
+  passo: number,
+  cor: readonly [number, number, number],
+): void {
+  const caixa = limitesDaPrimitiva(p);
+  const xa = Math.max(0, Math.floor(origemX + caixa.x0 * passo));
+  const xb = Math.min(alvo.width, Math.ceil(origemX + caixa.x1 * passo));
+  const ya = Math.max(0, Math.floor(origemY + caixa.y0 * passo));
+  const yb = Math.min(alvo.height, Math.ceil(origemY + caixa.y1 * passo));
+
+  for (let y = ya; y < yb; y++) {
+    const my = (y + 0.5 - origemY) / passo;
+    let i = (y * alvo.width + xa) * 4;
+    for (let x = xa; x < xb; x++) {
+      if (contemPonto(p, (x + 0.5 - origemX) / passo, my)) {
+        alvo.data[i] = cor[0];
+        alvo.data[i + 1] = cor[1];
+        alvo.data[i + 2] = cor[2];
+        alvo.data[i + 3] = 255;
+      }
+      i += 4;
+    }
+  }
+}
+
 function desenharQr(alvo: Bitmap, no: QrNode, k: number): void {
   const artefato = no.artifact;
   const modulos = artefato.sizeComQuietZone;
@@ -87,6 +126,20 @@ function desenharQr(alvo: Bitmap, no: QrNode, k: number): void {
 
   const escuro = canalRgb(no.dark);
   const q = artefato.quietZone;
+
+  const forma = no.forma ?? 'quadrado';
+  if (forma !== 'quadrado' || no.olhos !== undefined) {
+    const tintas: Record<Tinta, readonly [number, number, number]> = {
+      escuro,
+      claro: canalRgb(no.light),
+      olhos: canalRgb(no.olhos ?? no.dark),
+    };
+    const passo = ladoPx / modulos;
+    for (const p of primitivasDoCodigo(artefato, forma)) {
+      pintarPrimitiva(alvo, p, origemX, origemY, passo, tintas[p.tinta]);
+    }
+    return;
+  }
 
   /*
    * As bordas de cada modulo saem de `Math.round(origem + i * passo)`, e o fim
